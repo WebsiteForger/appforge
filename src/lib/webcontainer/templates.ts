@@ -31,15 +31,40 @@ const APPFORGE_BRIDGE_SCRIPT = `// AppForge Bridge — enables cross-origin comm
     push('Unhandled Promise: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
   });
 
-  // Watch for Vite error overlay
+  // Watch for Vite error overlay (Vite 5/6 uses Shadow DOM)
+  function extractOverlayText(node) {
+    // Try shadow root first (Vite 5+)
+    var root = node.shadowRoot;
+    if (root) {
+      // Look for the error message elements inside shadow DOM
+      var msg = root.querySelector('.message-body');
+      var file = root.querySelector('.file');
+      var frame = root.querySelector('.frame');
+      var tip = root.querySelector('.tip');
+      var parts = [];
+      if (file) parts.push('File: ' + file.textContent.trim());
+      if (msg) parts.push(msg.textContent.trim());
+      if (frame) parts.push(frame.textContent.trim().slice(0, 300));
+      if (tip) parts.push(tip.textContent.trim());
+      if (parts.length > 0) return parts.join('\\n');
+      // Fallback: get all text from shadow root
+      var allText = root.textContent || '';
+      if (allText.trim()) return allText.trim().slice(0, 800);
+    }
+    // Fallback for older Vite or no shadow DOM
+    return (node.textContent || '').trim().slice(0, 500);
+  }
   var observer = new MutationObserver(function(mutations) {
     mutations.forEach(function(m) {
       m.addedNodes.forEach(function(node) {
         if (node.tagName === 'VITE-ERROR-OVERLAY' || (node.id && node.id === 'vite-error-overlay')) {
-          var text = (node.textContent || '').trim().slice(0, 500);
-          if (text) {
-            try { window.parent.postMessage({ type: 'appforge-hmr-error', message: text }, '*'); } catch(e) {}
-          }
+          // Delay slightly to let Shadow DOM render
+          setTimeout(function() {
+            var text = extractOverlayText(node);
+            if (text) {
+              try { window.parent.postMessage({ type: 'appforge-hmr-error', message: text }, '*'); } catch(e) {}
+            }
+          }, 100);
         }
       });
     });

@@ -23,11 +23,28 @@ import { TEMPLATES, type TemplateName } from '@/lib/webcontainer/templates';
 import { commitFiles } from '@/lib/github/api';
 import { listFilesRecursive, readFile } from '@/lib/webcontainer/filesystem';
 import { clearConversation, getConversation, resetAgentForNewProject, runAgentLoop } from '@/lib/agent/engine';
+import { onTerminalStderr } from '@/lib/agent/errors';
 import { cn } from '@/lib/utils/format';
 import { getProjectsKey } from '@/lib/utils/storage';
 import { saveFileSnapshot, loadFileSnapshot, filesToFileSystemTree } from '@/lib/store/file-persistence';
 
 type MobileTab = 'chat' | 'code' | 'preview';
+
+/** Detect Vite/Babel compilation errors in dev server output */
+function looksLikeCompileError(data: string): boolean {
+  const lower = data.toLowerCase();
+  return (
+    lower.includes('[plugin:') ||
+    lower.includes('syntaxerror') ||
+    lower.includes('unexpected token') ||
+    lower.includes('error ts') ||
+    lower.includes('cannot find module') ||
+    lower.includes('is not defined') ||
+    lower.includes('is not a function') ||
+    (lower.includes('error') && lower.includes('.tsx:')) ||
+    (lower.includes('error') && lower.includes('.ts:'))
+  );
+}
 
 export default function EditorPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -136,9 +153,15 @@ export default function EditorPage() {
         appendTerminalLine('$ npm install');
         await spawnCommand('npm install', (data) => appendTerminalLine(data));
 
-        // Start dev server
+        // Start dev server — pipe output to terminal AND error capture
         appendTerminalLine('$ npm run dev');
-        const server = await startProcess('npm run dev', (data) => appendTerminalLine(data));
+        const server = await startProcess('npm run dev', (data) => {
+          appendTerminalLine(data);
+          // Feed compilation/runtime errors to the error capture system
+          if (looksLikeCompileError(data)) {
+            onTerminalStderr(data);
+          }
+        });
         devServerRef.current = server;
 
         // Inject project context for the AI

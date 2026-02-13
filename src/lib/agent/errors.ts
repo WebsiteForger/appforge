@@ -20,6 +20,10 @@ export function onTerminalStderr(data: string) {
 
 function isNoise(data: string): boolean {
   const lower = data.toLowerCase();
+  // Never filter out actual compile/syntax errors
+  if (lower.includes('[plugin:') || lower.includes('syntaxerror') || lower.includes('unexpected token')) {
+    return false;
+  }
   return (
     lower.includes('deprecationwarning') ||
     lower.includes('experimentalwarning') ||
@@ -122,13 +126,14 @@ export function formatErrorReport(): string {
 
   let report = '';
   if (errors.terminal.length) {
-    report += `TERMINAL ERRORS:\n${errors.terminal.join('\n')}\n\n`;
+    report += `TERMINAL/COMPILE ERRORS:\n${errors.terminal.join('\n')}\n\n`;
   }
   if (errors.console.length) {
     report += `BROWSER CONSOLE ERRORS:\n${errors.console.join('\n')}\n\n`;
   }
   if (errors.hmr.length) {
-    report += `HMR ERRORS:\n${errors.hmr.join('\n')}\n\n`;
+    report += `VITE HMR/OVERLAY ERRORS:\n${errors.hmr.join('\n')}\n\n`;
   }
+  report += 'ACTION: Read the file mentioned in the error, find the exact line, fix the root cause, and write the corrected file. Then check_errors() again.';
   return report;
 }
