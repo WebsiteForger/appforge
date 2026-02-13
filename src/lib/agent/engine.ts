@@ -7,7 +7,7 @@ import { trimConversation, estimateMessageTokens, truncateToolResult } from './c
 import { useAgentStore, type AgentPhase } from '../store/agent';
 import { useChatStore } from '../store/chat';
 
-const MAX_ITERATIONS = 50;
+const MAX_ITERATIONS = 200;
 const MAX_CONSECUTIVE_ERRORS = 5;
 const CONTEXT_TOKEN_BUDGET = 100000;
 

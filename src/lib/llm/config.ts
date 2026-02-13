@@ -17,7 +17,7 @@ const DEFAULT_CONFIG: LLMConfig = {
   baseUrl: PROXY_BASE_URL,
   apiKey: 'platform',        // placeholder — proxy ignores this
   model: 'openrouter/aurora-alpha',
-  maxTokens: 16384,
+  maxTokens: 128000,
   supportsToolUse: true,
   supportsVision: true,
 };
@@ -26,7 +26,18 @@ export function getLLMConfig(): LLMConfig {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return { ...DEFAULT_CONFIG, ...JSON.parse(stored) };
+      const parsed = JSON.parse(stored);
+      // Migration: if config has old VITE_DEFAULT_LLM_KEY approach or
+      // stale "platform" apiKey with a direct provider URL, reset it
+      if (
+        parsed.apiKey === 'platform' &&
+        parsed.baseUrl &&
+        parsed.baseUrl !== PROXY_BASE_URL
+      ) {
+        localStorage.removeItem(STORAGE_KEY);
+        return DEFAULT_CONFIG;
+      }
+      return { ...DEFAULT_CONFIG, ...parsed };
     }
   } catch {
     // ignore parse errors

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Save, Rocket, Settings, ArrowLeft, Zap } from 'lucide-react';
+import { Save, Rocket, Settings, ArrowLeft, Zap, Code, EyeOff } from 'lucide-react';
 import { UserButton } from '@clerk/clerk-react';
 import { Button } from '@/components/ui/button';
 import ChatPanel from '@/components/chat/ChatPanel';
@@ -38,6 +38,7 @@ export default function EditorPage() {
   const [booting, setBooting] = useState(true);
   const [mobileTab, setMobileTab] = useState<MobileTab>('chat');
   const [saving, setSaving] = useState(false);
+  const [showEditor, setShowEditor] = useState(true);
 
   // Load project if not already set
   useEffect(() => {
@@ -199,6 +200,15 @@ export default function EditorPage() {
               {saving ? 'Saving...' : 'Save'}
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowEditor(!showEditor)}
+            className="gap-1 text-xs hidden md:flex"
+          >
+            {showEditor ? <EyeOff className="w-3.5 h-3.5" /> : <Code className="w-3.5 h-3.5" />}
+            {showEditor ? 'Hide Editor' : 'Show Editor'}
+          </Button>
           <DeployButton />
           <Button
             variant="ghost"
@@ -212,23 +222,27 @@ export default function EditorPage() {
         </div>
       </header>
 
-      {/* Desktop: 3-panel layout */}
+      {/* Desktop: 3-panel layout (or 2-panel when editor hidden) */}
       <div className="flex-1 overflow-hidden hidden md:flex">
         <PanelGroup direction="horizontal">
           {/* Chat */}
-          <Panel defaultSize={25} minSize={15} maxSize={40}>
+          <Panel defaultSize={showEditor ? 25 : 35} minSize={15} maxSize={50}>
             <ChatPanel />
           </Panel>
           <PanelResizeHandle className="w-px bg-zinc-800/60 hover:bg-blue-500/40 transition-colors" />
 
-          {/* Editor */}
-          <Panel defaultSize={40} minSize={20}>
-            <EditorPanel />
-          </Panel>
-          <PanelResizeHandle className="w-px bg-zinc-800/60 hover:bg-blue-500/40 transition-colors" />
+          {/* Editor (collapsible) */}
+          {showEditor && (
+            <>
+              <Panel defaultSize={40} minSize={20}>
+                <EditorPanel />
+              </Panel>
+              <PanelResizeHandle className="w-px bg-zinc-800/60 hover:bg-blue-500/40 transition-colors" />
+            </>
+          )}
 
           {/* Preview + Terminal */}
-          <Panel defaultSize={35} minSize={20}>
+          <Panel defaultSize={showEditor ? 35 : 65} minSize={20}>
             <PanelGroup direction="vertical">
               <Panel defaultSize={70} minSize={30}>
                 <PreviewPanel />

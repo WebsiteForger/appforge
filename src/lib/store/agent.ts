@@ -39,10 +39,10 @@ interface AgentState {
 export const useAgentStore = create<AgentState>((set, get) => ({
   phase: 'idle',
   mode: 'plan-then-build',
-  autoProceed: false,
+  autoProceed: true,
   currentToolName: null,
   iterations: 0,
-  maxIterations: 50,
+  maxIterations: 200,
   plan: [],
   isRunning: false,
   error: null,
