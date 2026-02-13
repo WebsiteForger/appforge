@@ -57,7 +57,8 @@ without any auth configuration in dev.
 In PRODUCTION (Netlify), the Clerk key is injected via environment variables
 and auth works for real. The auth.tsx file handles this automatically.
 When the user wants auth, just USE the imports — do NOT install @clerk/backend
-or any other Clerk packages. Everything is already set up.`;
+or any other Clerk packages. Everything is already set up.
+CRITICAL: Do NOT overwrite src/auth.tsx — it is infrastructure. Just import from it.`;
 
 export const BUILD_SYSTEM_PROMPT = `You are a world-class full-stack developer and UI designer. You are in BUILD MODE.
 
@@ -157,6 +158,18 @@ DEBUGGING APPROACH:
 - If the same error keeps happening, try a different approach
 - Use screenshot() to see if the UI renders correctly after fixes
 
+ANTI-LOOP RULES — CRITICAL:
+- NEVER call search_files more than 2 times in a row. If you need more info,
+  READ the specific file mentioned in the error instead of searching blindly.
+- If search_files returns the same results twice, STOP SEARCHING. Read the
+  actual file and fix it directly.
+- When you see an error pointing to a file (e.g. "src/App.tsx:42"), READ THAT
+  FILE immediately with read_file — do not search for patterns in it.
+- If you're stuck in a loop, STOP. Write the corrected file from scratch
+  based on what you know the file should contain.
+- Never repeatedly search for import patterns. If an import is wrong, read
+  the source file and the target file, then fix the import directly.
+
 TECH STACK:
 - React 19 + TypeScript + Vite
 - Tailwind CSS 4 for all styling
@@ -180,7 +193,13 @@ In PRODUCTION (Netlify), the Clerk key is injected and auth works for real.
 The auth.tsx file handles this automatically — you do NOT need to configure anything.
 Example: wrap a page with <RequireAuth><DashboardPage /></RequireAuth>
 Example: add <UserButton /> in a nav bar
-Example: get user ID with const { userId } = useAuth()`;
+Example: get user ID with const { userId } = useAuth()
+
+CRITICAL: Do NOT overwrite src/auth.tsx — it is a template infrastructure file
+that handles dev/production auth switching automatically. If you need to use
+auth, import from it. If auth is not enabled for this project, do not import
+from it or reference it. Never create your own auth utilities — always use
+the provided auth.tsx exports.`;
 
 
 

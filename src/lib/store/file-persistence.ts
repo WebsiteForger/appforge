@@ -5,7 +5,10 @@ const DB_NAME = 'appforge-files';
 const STORE_NAME = 'snapshots';
 const DB_VERSION = 1;
 
-/** Infrastructure files provided by the template — never save these in snapshots. */
+/** Infrastructure files provided by the template — never save these in snapshots.
+ * These are overwritten by the template on every boot, so saving them would
+ * create conflicts (e.g. old vite.config.ts missing Netlify plugin, or
+ * auth.tsx with mismatched exports causing HMR failures). */
 const INFRASTRUCTURE_FILES = new Set([
   'vite.config.ts',
   'package.json',
@@ -13,6 +16,8 @@ const INFRASTRUCTURE_FILES = new Set([
   'tsconfig.json',
   'netlify.toml',
   'index.html',
+  'src/auth.tsx',
+  'src/main.tsx',
 ]);
 
 function openDB(): Promise<IDBDatabase> {

@@ -20,8 +20,19 @@ export function onTerminalStderr(data: string) {
 
 function isNoise(data: string): boolean {
   const lower = data.toLowerCase();
-  // Never filter out actual compile/syntax errors
-  if (lower.includes('[plugin:') || lower.includes('syntaxerror') || lower.includes('unexpected token')) {
+  // Never filter out actual compile/syntax/HMR errors
+  if (
+    lower.includes('[plugin:') ||
+    lower.includes('syntaxerror') ||
+    lower.includes('unexpected token') ||
+    lower.includes('could not fast refresh') ||
+    lower.includes('failed to reload') ||
+    lower.includes('export is incompatible') ||
+    lower.includes('does not provide an export') ||
+    lower.includes('is not exported from') ||
+    lower.includes('pre-transform error') ||
+    lower.includes('transform failed')
+  ) {
     return false;
   }
   return (

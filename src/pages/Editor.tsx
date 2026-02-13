@@ -30,7 +30,7 @@ import { saveFileSnapshot, loadFileSnapshot, filesToFileSystemTree } from '@/lib
 
 type MobileTab = 'chat' | 'code' | 'preview';
 
-/** Detect Vite/Babel compilation errors in dev server output */
+/** Detect Vite/Babel compilation errors and HMR failures in dev server output */
 function looksLikeCompileError(data: string): boolean {
   const lower = data.toLowerCase();
   return (
@@ -41,6 +41,15 @@ function looksLikeCompileError(data: string): boolean {
     lower.includes('cannot find module') ||
     lower.includes('is not defined') ||
     lower.includes('is not a function') ||
+    lower.includes('could not fast refresh') ||
+    lower.includes('failed to reload') ||
+    lower.includes('hmr invalidate') ||
+    lower.includes('hmr update') ||
+    lower.includes('pre-transform error') ||
+    lower.includes('transform failed') ||
+    lower.includes('export is incompatible') ||
+    lower.includes('does not provide an export') ||
+    lower.includes('is not exported from') ||
     (lower.includes('error') && lower.includes('.tsx:')) ||
     (lower.includes('error') && lower.includes('.ts:'))
   );

@@ -151,7 +151,7 @@ export const TOOL_DEFINITIONS: LLMToolDefinition[] = [
     function: {
       name: 'search_files',
       description:
-        'Search for a text pattern across all project files. Like grep.',
+        'Search for a text pattern across all project files. Like grep. WARNING: Do not call this more than 2 times in a row. If you already searched and found the file, READ it with read_file and FIX it with write_file instead of searching again.',
       parameters: {
         type: 'object',
         properties: {

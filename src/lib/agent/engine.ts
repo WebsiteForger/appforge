@@ -261,6 +261,7 @@ async function runLoop({
   let hasWrittenFiles = false;
   let taskCompleted = false;
   let hadMalformedToolCall = false;
+  let consecutiveSearches = 0;
 
   // Capture the loop ID so we can detect if we've been superseded
   const myId = activeLoopId;
@@ -543,6 +544,28 @@ async function runLoop({
     // Reset nudge counter after successful tool calls — nudges only
     // count consecutive text-only responses, not total across the loop
     nudgesUsed = 0;
+
+    // Detect degenerate search loops — if the AI calls only search_files
+    // or read_file repeatedly without writing anything, inject a correction
+    const allSearchOrRead = toolCalls.every(
+      (tc) => tc.function.name === 'search_files' || tc.function.name === 'list_files',
+    );
+    if (allSearchOrRead && toolCalls.some((tc) => tc.function.name === 'search_files')) {
+      consecutiveSearches++;
+    } else {
+      consecutiveSearches = 0;
+    }
+
+    if (consecutiveSearches >= 3) {
+      consecutiveSearches = 0;
+      conversation.push({
+        role: 'user',
+        content:
+          'STOP SEARCHING. You have called search_files 3+ times in a row without making progress. ' +
+          'Read the actual file that has the error (use read_file), understand the problem, and ' +
+          'write the corrected file with write_file. Do not search again — act on what you know.',
+      });
+    }
 
     if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
       chatStore.addMessage({
