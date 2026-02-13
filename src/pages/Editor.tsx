@@ -43,15 +43,21 @@ export default function EditorPage() {
   const [showEditor, setShowEditor] = useState(true);
   const prevProjectIdRef = useRef<string | undefined>(undefined);
 
-  // Clear all state when switching projects (prevents chat leaking)
+  // Load chat history and clear agent state when projectId changes
   useEffect(() => {
+    if (!projectId) return;
+
+    // If switching projects, stop the agent and clear conversation
     if (prevProjectIdRef.current && prevProjectIdRef.current !== projectId) {
+      useChatStore.getState().saveToStorage(); // save old project's chat
       clearConversation();
-      useChatStore.getState().clearMessages();
       useAgentStore.getState().stop();
       useAgentStore.getState().reset();
       setBooting(true);
     }
+
+    // Load persisted chat for this project
+    useChatStore.getState().loadForProject(projectId);
     prevProjectIdRef.current = projectId;
   }, [projectId]);
 
@@ -114,7 +120,8 @@ export default function EditorPage() {
 
         setBooting(false);
 
-        // Auto-send project description (or name) as the first prompt
+        // Auto-send project description on FIRST EVER open only.
+        // If chat already has messages (persisted or from this session), skip.
         if (useChatStore.getState().messages.length === 0) {
           const desc = project!.description?.trim();
           const firstPrompt = desc
@@ -135,11 +142,11 @@ export default function EditorPage() {
     };
   }, [project, setFileTree]);
 
-  // Clean up on unmount
+  // Save chat and clean up on unmount
   useEffect(() => {
     return () => {
+      useChatStore.getState().saveToStorage();
       clearConversation();
-      useChatStore.getState().clearMessages();
       useAgentStore.getState().reset();
     };
   }, []);

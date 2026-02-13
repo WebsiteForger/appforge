@@ -155,6 +155,7 @@ async function runLoop({
   let nudgesUsed = 0;
   const MAX_NUDGES = 3;
   let hasWrittenFiles = false;
+  let taskCompleted = false;
 
   while (iterations < MAX_ITERATIONS) {
     if (signal.aborted) break;
@@ -281,17 +282,24 @@ async function runLoop({
     if (toolCalls.length === 0) {
       conversation.push({ role: 'assistant', content: fullText });
 
-      // In build mode, if the AI hasn't written any files yet and just
-      // talked/read files, nudge it to actually start building.
+      // In build mode, only stop if task_complete was called.
+      // Otherwise nudge the AI to keep going.
       const isBuildPhase = useAgentStore.getState().phase === 'building';
-      if (isBuildPhase && !hasWrittenFiles && nudgesUsed < MAX_NUDGES) {
+      if (isBuildPhase && !taskCompleted && nudgesUsed < MAX_NUDGES) {
         nudgesUsed++;
-        const nudge = 'Continue. Start writing the code files now using write_file. Build the complete application step by step.';
+        const nudge = hasWrittenFiles
+          ? 'You haven\'t called task_complete yet. If the app is fully working, call task_complete with a summary. Otherwise keep building — write more files, fix errors, and verify with screenshot().'
+          : 'Continue. Start writing the code files now using write_file. Build the complete application step by step. When fully done, call task_complete.';
         conversation.push({ role: 'user', content: nudge });
         chatStore.addMessage({ role: 'system', content: 'Nudging AI to continue building...' });
         continue;
       }
 
+      break;
+    }
+
+    // If task_complete was called, stop after this iteration
+    if (taskCompleted) {
       break;
     }
 
@@ -309,6 +317,7 @@ async function runLoop({
       const executor = TOOL_EXECUTORS[toolName];
 
       if (toolName === 'write_file') hasWrittenFiles = true;
+      if (toolName === 'task_complete') taskCompleted = true;
 
       agentStore.setCurrentTool(toolName);
 

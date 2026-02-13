@@ -198,6 +198,26 @@ export const TOOL_DEFINITIONS: LLMToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'task_complete',
+      description:
+        'Call this when you have FULLY finished building the application. ' +
+        'Only call this after all files are written, errors are fixed, ' +
+        'and the app is working. Include a brief summary of what was built.',
+      parameters: {
+        type: 'object',
+        properties: {
+          summary: {
+            type: 'string',
+            description: 'Brief summary of what was built and key features',
+          },
+        },
+        required: ['summary'],
+      },
+    },
+  },
 ];
 
 // ── Tool Executors ──
@@ -335,6 +355,11 @@ export const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
     } catch (err) {
       return `SQL request failed: ${err}`;
     }
+  },
+
+  task_complete: async (args) => {
+    const summary = args.summary as string;
+    return `TASK_COMPLETE: ${summary}`;
   },
 
   db_tables: async () => {

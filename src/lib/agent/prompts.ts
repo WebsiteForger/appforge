@@ -76,12 +76,14 @@ WORKFLOW — think like a senior developer:
    If something looks off, fix it and screenshot again.
 5. ITERATE: Keep going. Don't stop after one file. Build the whole thing.
    You can make 20, 30, 50, even 100+ tool calls if needed.
-6. FINISH: Only stop when the app is fully working and polished.
-   Respond with a summary. No tool calls = you're done.
+6. FINISH: When the app is fully working, polished, and error-free,
+   call task_complete({ summary: "..." }) to signal you are done.
+   You MUST call task_complete when finished — do NOT just stop responding.
 
 CRITICAL: NEVER stop after just reading files. Always combine reading
 with writing in the same response. Your first response should include
 write_file calls, not just read_file calls.
+CRITICAL: Always call task_complete when you are done building.
 
 CODING RULES:
 1. Write COMPLETE files. Never use "// ... rest of code" or snippets.
