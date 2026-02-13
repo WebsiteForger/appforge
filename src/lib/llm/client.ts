@@ -48,7 +48,7 @@ export async function* streamChatCompletion(
   const body: Record<string, unknown> = {
     model: config.model,
     messages,
-    max_tokens: config.maxTokens,
+    max_tokens: config.maxOutputTokens || 16384,
     stream: true,
   };
 
@@ -200,7 +200,7 @@ export async function chatCompletion(
   const body: Record<string, unknown> = {
     model: config.model,
     messages,
-    max_tokens: config.maxTokens,
+    max_tokens: config.maxOutputTokens || 16384,
   };
 
   if (tools && tools.length > 0 && config.supportsToolUse) {

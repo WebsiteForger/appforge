@@ -3,6 +3,8 @@ export interface LLMConfig {
   apiKey: string;
   model: string;
   maxTokens: number;
+  /** Max output tokens per response (sent as max_tokens to the API) */
+  maxOutputTokens: number;
   supportsToolUse: boolean;
   supportsVision: boolean;
 }
@@ -17,7 +19,8 @@ const DEFAULT_CONFIG: LLMConfig = {
   baseUrl: PROXY_BASE_URL,
   apiKey: 'platform',        // placeholder — proxy ignores this
   model: 'openrouter/aurora-alpha',
-  maxTokens: 128000,
+  maxTokens: 128000,          // context budget for conversation trimming
+  maxOutputTokens: 16384,     // max output per LLM response (sent as max_tokens)
   supportsToolUse: true,
   supportsVision: true,
 };

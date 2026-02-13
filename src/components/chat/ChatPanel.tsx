@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Bot } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
@@ -14,12 +14,37 @@ export default function ChatPanel() {
   const currentToolName = useAgentStore((s) => s.currentToolName);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom
+  // Filter out internal system messages (nudges, retries) from display
+  const visibleMessages = messages.filter((m) => {
+    if (m.role !== 'system') return true;
+    // Hide nudge and retry messages
+    if (m.content.startsWith('Nudging AI')) return false;
+    if (m.content.includes('Retrying in')) return false;
+    if (m.content.includes('malformed arguments')) return false;
+    return true;
+  });
+
+  // Reliable auto-scroll to bottom
+  const scrollToBottom = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    });
+  }, []);
+
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, currentToolName]);
+    scrollToBottom();
+  }, [messages, currentToolName, scrollToBottom]);
+
+  // Also scroll on content mutations (streaming text)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new MutationObserver(scrollToBottom);
+    observer.observe(el, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [scrollToBottom]);
 
   function handleSend(message: string) {
     runAgentLoop(message);
@@ -42,7 +67,7 @@ export default function ChatPanel() {
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        {messages.length === 0 ? (
+        {visibleMessages.length === 0 && messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-4">
             <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
               <Bot className="w-6 h-6 text-primary" />
@@ -70,7 +95,7 @@ export default function ChatPanel() {
             </div>
           </div>
         ) : (
-          messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
+          visibleMessages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
         )}
       </div>
 

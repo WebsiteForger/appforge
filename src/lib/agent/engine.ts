@@ -153,7 +153,7 @@ async function runLoop({
   let iterations = 0;
   let consecutiveErrors = 0;
   let nudgesUsed = 0;
-  const MAX_NUDGES = 3;
+  const MAX_NUDGES = 5;
   let hasWrittenFiles = false;
   let taskCompleted = false;
 
@@ -212,11 +212,23 @@ async function runLoop({
 
           case 'tool_call_end':
             if (chunk.toolCall) {
+              // Validate that tool call arguments are valid JSON before accepting
+              let parsedArgs: Record<string, unknown> = {};
+              try {
+                parsedArgs = JSON.parse(chunk.toolCall.function!.arguments || '{}');
+              } catch {
+                // Truncated/malformed tool call — skip it entirely
+                chatStore.addMessage({
+                  role: 'system',
+                  content: `Tool call "${chunk.toolCall.function!.name}" had malformed arguments (response was likely truncated). Retrying...`,
+                });
+                break;
+              }
               toolCalls.push(chunk.toolCall as LLMToolCall);
               chatStore.addToolCallToMessage(msgId, {
                 id: chunk.toolCall.id!,
                 name: chunk.toolCall.function!.name,
-                arguments: JSON.parse(chunk.toolCall.function!.arguments || '{}'),
+                arguments: parsedArgs,
                 isRunning: true,
               });
             }
@@ -291,7 +303,6 @@ async function runLoop({
           ? 'You haven\'t called task_complete yet. If the app is fully working, call task_complete with a summary. Otherwise keep building — write more files, fix errors, and verify with screenshot().'
           : 'Continue. Start writing the code files now using write_file. Build the complete application step by step. When fully done, call task_complete.';
         conversation.push({ role: 'user', content: nudge });
-        chatStore.addMessage({ role: 'system', content: 'Nudging AI to continue building...' });
         continue;
       }
 

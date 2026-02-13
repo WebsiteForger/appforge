@@ -23,7 +23,8 @@ export default function LLMConfigPanel() {
         baseUrl: '/.netlify/functions/llm-proxy',
         apiKey: 'platform',
         model: 'openrouter/aurora-alpha',
-        maxTokens: 16384,
+        maxTokens: 128000,
+        maxOutputTokens: 16384,
         supportsToolUse: true,
         supportsVision: true,
       });
