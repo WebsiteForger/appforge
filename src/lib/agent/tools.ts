@@ -239,6 +239,12 @@ export const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
       editorStore.updateFileContent(path, content);
     }
 
+    // Auto-open important files in the editor (e.g. PLAN.md)
+    const autoOpenFiles = ['PLAN.md', 'plan.md'];
+    if (autoOpenFiles.some((f) => path.endsWith(f))) {
+      editorStore.openFile(path, content);
+    }
+
     // Refresh file tree
     const tree = await fs.buildFileTree();
     editorStore.setFileTree(tree);
@@ -281,11 +287,21 @@ export const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   },
 
   run_command: async (args) => {
-    const command = args.command as string;
-    const result = await spawnCommand(command, (data) => {
-      // Output will be captured by the terminal panel
-      // via a shared event bus or store
-    });
+    const command = (args.command as string).trim();
+
+    // Block long-running/server commands — the boot process already handles these
+    const blocked = ['npm run dev', 'npm start', 'npx vite', 'vite', 'node server', 'yarn dev', 'pnpm dev'];
+    if (blocked.some((b) => command.startsWith(b))) {
+      return 'Error: Dev server is already running (started automatically). Do not start it yourself. Use check_errors() or screenshot() to verify the app.';
+    }
+
+    // Run with a 60s timeout to prevent accidental hangs
+    const result = await Promise.race([
+      spawnCommand(command),
+      new Promise<{ exitCode: number; output: string }>((_, reject) =>
+        setTimeout(() => reject(new Error('Command timed out after 60 seconds')), 60000),
+      ),
+    ]);
     const output = truncateToolResult(result.output);
     return `Exit code: ${result.exitCode}\n\n${output}`;
   },

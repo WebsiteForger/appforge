@@ -131,6 +131,12 @@ export default function EditorPage() {
         // Auto-send project description on FIRST EVER open only.
         // If chat already has messages (persisted or from this session), skip.
         if (useChatStore.getState().messages.length === 0) {
+          // First open: force plan mode so the AI plans before building
+          const agentState = useAgentStore.getState();
+          agentState.setAutoProceed(false);
+          agentState.setMode('plan-then-build');
+          agentState.setPhase('idle');
+
           const desc = project!.description?.trim();
           const firstPrompt = desc
             ? desc

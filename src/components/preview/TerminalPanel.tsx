@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { TerminalSquare } from 'lucide-react';
 
 // We use a simple div-based terminal for now since xterm.js needs careful
@@ -8,9 +8,14 @@ const terminalLines: string[] = [];
 const MAX_LINES = 500;
 let listeners: Set<() => void> = new Set();
 
+// Strip ANSI escape codes so terminal output is readable
+function stripAnsi(str: string): string {
+  return str.replace(/\x1b\[[0-9;]*[a-zA-Z]|\x1b\[\?[0-9;]*[a-zA-Z]|\x1b\][^\x07]*\x07/g, '');
+}
+
 export function appendTerminalLine(data: string) {
-  // Split data into lines and add each
-  const lines = data.split('\n');
+  const cleaned = stripAnsi(data);
+  const lines = cleaned.split('\n');
   for (const line of lines) {
     if (line.trim()) {
       terminalLines.push(line);
@@ -19,7 +24,6 @@ export function appendTerminalLine(data: string) {
       }
     }
   }
-  // Notify listeners
   for (const listener of listeners) {
     listener();
   }
@@ -34,15 +38,27 @@ export function clearTerminal() {
 
 export default function TerminalPanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const forceUpdate = useRef(0);
+  const [, setTick] = useState(0);
+  const userScrolledUp = useRef(false);
+
+  // Check if user has scrolled away from bottom
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30;
+    userScrolledUp.current = !atBottom;
+  }, []);
 
   useEffect(() => {
     const listener = () => {
-      forceUpdate.current++;
-      // Force re-render
-      scrollRef.current?.dispatchEvent(new Event('update'));
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      setTick((t) => t + 1);
+      // Only auto-scroll if user hasn't scrolled up
+      if (!userScrolledUp.current && scrollRef.current) {
+        requestAnimationFrame(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          }
+        });
       }
     };
 
@@ -50,16 +66,6 @@ export default function TerminalPanel() {
     return () => {
       listeners.delete(listener);
     };
-  }, []);
-
-  // Use MutationObserver pattern to trigger re-renders
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      }
-    }, 500);
-    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -70,7 +76,7 @@ export default function TerminalPanel() {
           <span className="font-medium text-muted-foreground">Terminal</span>
         </div>
         <button
-          onClick={clearTerminal}
+          onClick={() => { clearTerminal(); userScrolledUp.current = false; }}
           className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
         >
           Clear
@@ -78,6 +84,7 @@ export default function TerminalPanel() {
       </div>
       <div
         ref={scrollRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-2 font-mono text-[11px] leading-relaxed text-green-400/80"
       >
         {terminalLines.length === 0 ? (
