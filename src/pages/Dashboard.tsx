@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserButton } from '@clerk/clerk-react';
+import { UserButton, useAuth } from '@clerk/clerk-react';
 import {
   Plus,
   Folder,
@@ -19,9 +19,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { useProjectStore, type Project } from '@/lib/store/project';
 import { formatRelativeTime } from '@/lib/utils/format';
+import { getProjectsKey } from '@/lib/utils/storage';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { userId } = useAuth();
   const projects = useProjectStore((s) => s.projects);
   const setProjects = useProjectStore((s) => s.setProjects);
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
@@ -39,14 +41,14 @@ export default function Dashboard() {
     // Load projects from localStorage (or API in production)
     setLoading(true);
     try {
-      const stored = localStorage.getItem('appforge-projects');
+      const stored = localStorage.getItem(getProjectsKey(userId));
       if (stored) {
         setProjects(JSON.parse(stored));
       }
     } finally {
       setLoading(false);
     }
-  }, [setProjects, setLoading]);
+  }, [setProjects, setLoading, userId]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -70,7 +72,7 @@ export default function Dashboard() {
 
     const updated = [project, ...projects];
     setProjects(updated);
-    localStorage.setItem('appforge-projects', JSON.stringify(updated));
+    localStorage.setItem(getProjectsKey(userId), JSON.stringify(updated));
 
     setCreating(false);
     setShowCreate(false);
@@ -92,7 +94,7 @@ export default function Dashboard() {
     if (!confirm('Delete this project? This cannot be undone.')) return;
     const updated = projects.filter((p) => p.id !== projectId);
     setProjects(updated);
-    localStorage.setItem('appforge-projects', JSON.stringify(updated));
+    localStorage.setItem(getProjectsKey(userId), JSON.stringify(updated));
   }
 
   return (

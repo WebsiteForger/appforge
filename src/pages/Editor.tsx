@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Save, Rocket, Settings, ArrowLeft, Zap, Code, EyeOff } from 'lucide-react';
-import { UserButton } from '@clerk/clerk-react';
+import { UserButton, useAuth } from '@clerk/clerk-react';
 import { Button } from '@/components/ui/button';
 import ChatPanel from '@/components/chat/ChatPanel';
 import EditorPanel from '@/components/editor/EditorPanel';
@@ -24,12 +24,14 @@ import { commitFiles } from '@/lib/github/api';
 import { listFilesRecursive, readFile } from '@/lib/webcontainer/filesystem';
 import { clearConversation, getConversation, runAgentLoop } from '@/lib/agent/engine';
 import { cn } from '@/lib/utils/format';
+import { getProjectsKey } from '@/lib/utils/storage';
 
 type MobileTab = 'chat' | 'code' | 'preview';
 
 export default function EditorPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const { userId } = useAuth();
   const project = useProjectStore((s) => s.currentProject);
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
   const agentPhase = useAgentStore((s) => s.phase);
@@ -39,11 +41,24 @@ export default function EditorPage() {
   const [mobileTab, setMobileTab] = useState<MobileTab>('chat');
   const [saving, setSaving] = useState(false);
   const [showEditor, setShowEditor] = useState(true);
+  const prevProjectIdRef = useRef<string | undefined>(undefined);
+
+  // Clear all state when switching projects (prevents chat leaking)
+  useEffect(() => {
+    if (prevProjectIdRef.current && prevProjectIdRef.current !== projectId) {
+      clearConversation();
+      useChatStore.getState().clearMessages();
+      useAgentStore.getState().stop();
+      useAgentStore.getState().reset();
+      setBooting(true);
+    }
+    prevProjectIdRef.current = projectId;
+  }, [projectId]);
 
   // Load project if not already set
   useEffect(() => {
     if (!project && projectId) {
-      const stored = localStorage.getItem('appforge-projects');
+      const stored = localStorage.getItem(getProjectsKey(userId));
       if (stored) {
         const projects: Project[] = JSON.parse(stored);
         const found = projects.find((p) => p.id === projectId);
@@ -54,7 +69,7 @@ export default function EditorPage() {
         }
       }
     }
-  }, [project, projectId, setCurrentProject, navigate]);
+  }, [project, projectId, setCurrentProject, navigate, userId]);
 
   // Boot WebContainer and mount template
   useEffect(() => {

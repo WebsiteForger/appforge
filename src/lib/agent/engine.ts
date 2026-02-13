@@ -67,7 +67,8 @@ export async function runAgentLoop(userMessage: string) {
       if (abortController.signal.aborted) return;
 
       // If auto-proceed, inject approval and continue to build
-      if (agentStore.autoProceed) {
+      // Re-read from live store (the snapshot captured above may be stale)
+      if (useAgentStore.getState().autoProceed) {
         conversation.push({
           role: 'user',
           content: 'Looks good. Proceed with building the full application.',
