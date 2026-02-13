@@ -246,9 +246,10 @@ async function runLoop({
 
       // Auto-retry with exponential backoff
       const delay = Math.min(1000 * Math.pow(2, consecutiveErrors - 1), 8000);
+      const errDetail = err instanceof Error ? err.message : String(err);
       chatStore.addMessage({
         role: 'system',
-        content: `Connection error. Retrying in ${delay / 1000}s...`,
+        content: `LLM error: ${errDetail}. Retrying in ${delay / 1000}s...`,
       });
       await new Promise((r) => setTimeout(r, delay));
       continue;

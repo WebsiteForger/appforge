@@ -22,7 +22,7 @@ import { appendTerminalLine } from '@/components/preview/TerminalPanel';
 import { TEMPLATES, type TemplateName } from '@/lib/webcontainer/templates';
 import { commitFiles } from '@/lib/github/api';
 import { listFilesRecursive, readFile } from '@/lib/webcontainer/filesystem';
-import { clearConversation, getConversation } from '@/lib/agent/engine';
+import { clearConversation, getConversation, runAgentLoop } from '@/lib/agent/engine';
 import { cn } from '@/lib/utils/format';
 
 type MobileTab = 'chat' | 'code' | 'preview';
@@ -97,6 +97,11 @@ export default function EditorPage() {
         getConversation().push({ role: 'system', content: contextMsg });
 
         setBooting(false);
+
+        // Auto-send project description as first prompt
+        if (project!.description && useChatStore.getState().messages.length === 0) {
+          runAgentLoop(project!.description);
+        }
       } catch (err) {
         appendTerminalLine(`Error: ${err}`);
         setBooting(false);

@@ -24,7 +24,7 @@ export const REACT_NETLIFY_TEMPLATE: FileSystemTree = {
             'react-router': '^7.0.0',
             'react-router-dom': '^7.0.0',
             'lucide-react': '^0.460.0',
-            '@electric-sql/pglite': '^0.11.0',
+            '@electric-sql/pglite': '^0.3.0',
             '@neondatabase/serverless': '^1.0.0',
             'drizzle-orm': '^0.38.0',
             '@clerk/clerk-react': '^5.20.0',
