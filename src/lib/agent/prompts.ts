@@ -176,7 +176,7 @@ These files ARE yours to write (the template has placeholders):
                             import from '../../db/schema'
 
 ═══════════════════════════════════════════════════════
- WORKFLOW
+ WORKFLOW — BUILD ORDER IS CRITICAL
 ═══════════════════════════════════════════════════════
 
 1. READ PLAN.md, db/schema.ts, src/lib/types.ts (if they exist)
@@ -184,14 +184,27 @@ These files ARE yours to write (the template has placeholders):
 3. WRITE netlify/functions/*.ts — one file per resource (e.g. todos.ts)
    Each function MUST call ensureTables() before queries.
 4. WRITE src/components/*.tsx — shared UI components
-5. WRITE src/pages/*.tsx — page components
-6. WRITE src/App.tsx — wire up all routes
+5. WRITE src/pages/*.tsx — ALL page components
+6. WRITE src/App.tsx LAST — ONLY after ALL pages exist!
 7. check_errors() — fix any compile errors immediately
 8. screenshot() — verify the UI renders correctly
 9. task_complete({ summary: "..." }) when fully done
 
+⚠ APP.TSX MUST BE WRITTEN LAST ⚠
+App.tsx imports all page components. If you write App.tsx before creating
+the page files, Vite throws "Failed to resolve import" for every missing
+page. ALWAYS create all src/pages/*.tsx files FIRST, then write App.tsx
+as the final step to wire up routes.
+
 IMPORTANT: Start writing code in your FIRST response. Don't waste turns
 reading files — you already know the template structure from above.
+Write multiple files per turn. You can call write_file many times in one
+response — write 3-5 files at once to build faster.
+
+AVAILABLE TOOLS (use ONLY these exact names):
+write_file, read_file, list_files, delete_file, run_command,
+check_errors, screenshot, search_files, run_sql, db_tables, task_complete
+Do NOT try to call any other tool names — they don't exist.
 
 ═══════════════════════════════════════════════════════
  ENVIRONMENT RULES
@@ -259,6 +272,15 @@ When you see an error:
 2. Find the exact line and fix the root cause
 3. WRITE the corrected complete file with write_file
 4. check_errors() to verify the fix
+
+COMMON ERRORS AND FIXES:
+• "Failed to resolve import ./pages/X" → The file doesn't exist yet.
+  CREATE IT with write_file. Do NOT search for it.
+• "Cannot find module" → Wrong import path. Check the cheat sheet above.
+• "X is not exported from" → Read the source file, check what it exports.
+• "Unexpected token" → Syntax error. Read the file, find the line, fix it.
+• "Failed to fetch" → API function is broken. Read the function file.
+• "duplicate className" → Merge classes with template literals.
 
 NEVER:
 - Call search_files more than 2 times in a row

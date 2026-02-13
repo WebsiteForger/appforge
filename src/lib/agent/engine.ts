@@ -439,9 +439,9 @@ async function runLoop({
         const hasErrors = !errorReport.includes('No errors detected');
         let nudge: string;
         if (!hasWrittenFiles && currentPhase === 'building') {
-          nudge = 'Continue. Start writing the code files now using write_file. Build the complete application step by step. When fully done, call task_complete.';
+          nudge = 'Continue. Start writing the code files now using write_file. Build the complete application step by step. Remember: write ALL page files BEFORE App.tsx. When fully done, call task_complete.';
         } else if (hasErrors) {
-          nudge = `There are errors in the app that need fixing:\n\n${errorReport}\n\nPlease fix these errors, then continue building. Use check_errors() after fixing to verify.`;
+          nudge = `There are errors in the app that need fixing:\n\n${errorReport}\n\nIMPORTANT: Do NOT search for patterns. Instead:\n1. If the error says "Failed to resolve import" → the file doesn't exist yet, CREATE it with write_file\n2. If the error points to a specific file → use read_file on that file, then write_file to fix it\n3. After fixing, call check_errors() to verify`;
         } else {
           nudge = 'You haven\'t called task_complete yet. If the app is fully working, call task_complete with a summary. Otherwise keep building — write more files, fix errors, take a screenshot() to verify the UI, and then call task_complete when done.';
         }

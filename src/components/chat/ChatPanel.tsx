@@ -15,8 +15,12 @@ export default function ChatPanel() {
   const currentToolName = useAgentStore((s) => s.currentToolName);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Filter out internal system messages (nudges, retries) from display
+  // Filter out internal system messages and empty assistant bubbles from display
   const visibleMessages = messages.filter((m) => {
+    // Hide empty assistant messages (no text, no tool calls)
+    if (m.role === 'assistant' && !m.content && (!m.toolCalls || m.toolCalls.length === 0) && !m.isStreaming) {
+      return false;
+    }
     if (m.role !== 'system') return true;
     // Hide nudge and retry messages
     if (m.content.startsWith('Nudging AI')) return false;
