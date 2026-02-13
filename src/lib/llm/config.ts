@@ -9,13 +9,15 @@ export interface LLMConfig {
 
 const STORAGE_KEY = 'appforge-llm-config';
 
+// Platform default: OpenRouter with Aurora Alpha
+// Falls back to VITE_DEFAULT_LLM_KEY so the platform owner can provide a key
 const DEFAULT_CONFIG: LLMConfig = {
-  baseUrl: 'https://api.together.xyz/v1',
-  apiKey: '',
-  model: 'Qwen/Qwen3-Coder',
+  baseUrl: 'https://openrouter.ai/api/v1',
+  apiKey: import.meta.env.VITE_DEFAULT_LLM_KEY ?? '',
+  model: 'openrouter/aurora-alpha',
   maxTokens: 16384,
   supportsToolUse: true,
-  supportsVision: false,
+  supportsVision: true,
 };
 
 export function getLLMConfig(): LLMConfig {
@@ -44,4 +46,8 @@ export function clearLLMConfig() {
 export function isConfigured(): boolean {
   const config = getLLMConfig();
   return Boolean(config.apiKey && config.baseUrl && config.model);
+}
+
+export function hasDefaultKey(): boolean {
+  return Boolean(import.meta.env.VITE_DEFAULT_LLM_KEY);
 }

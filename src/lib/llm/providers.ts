@@ -25,6 +25,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
     models: [
+      { id: 'openrouter/aurora-alpha', label: 'Aurora Alpha', vision: true },
       { id: 'anthropic/claude-sonnet-4', label: 'Claude Sonnet 4', vision: true },
       { id: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash', vision: true },
       { id: 'openai/gpt-4o', label: 'GPT-4o', vision: true },

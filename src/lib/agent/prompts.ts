@@ -39,7 +39,19 @@ TECH STACK:
 - Netlify Functions for API routes
 - Netlify DB (@netlify/neon) + Drizzle ORM for database
 - Clerk for auth (if the app needs user accounts)
-- lucide-react for icons`;
+- lucide-react for icons
+
+AUTH SETUP (Clerk is pre-installed):
+The project already has @clerk/clerk-react installed and ClerkProvider
+wired up in main.tsx. An auth.tsx helper module exists at src/auth.tsx with:
+- useAuth() — returns { isSignedIn, userId, user, isLoaded }
+- SignInButton — renders a Clerk modal sign-in button
+- UserButton — renders the Clerk user avatar/dropdown
+- RequireAuth — wrapper component that gates content behind auth
+Import from './auth' or '../auth' depending on depth.
+Clerk is optional — if no VITE_CLERK_PUBLISHABLE_KEY is set, all auth
+components gracefully degrade (useAuth returns isSignedIn: true, buttons render nothing).
+When the user wants auth, just USE these imports — don't reinstall or reconfigure Clerk.`;
 
 export const BUILD_SYSTEM_PROMPT = `You are an expert full-stack developer. You are in BUILD MODE.
 
@@ -103,7 +115,20 @@ TECH STACK:
 - Netlify Functions for API routes
 - Netlify DB (@netlify/neon) + Drizzle ORM for database
 - Clerk for auth (if specified in plan)
-- lucide-react for icons`;
+- lucide-react for icons
+
+AUTH SETUP (Clerk is pre-installed):
+The project already has @clerk/clerk-react installed and ClerkProvider
+wired up in main.tsx. An auth.tsx helper module exists at src/auth.tsx with:
+- useAuth() — returns { isSignedIn, userId, user, isLoaded }
+- SignInButton — renders a Clerk modal sign-in button
+- UserButton — renders the Clerk user avatar/dropdown
+- RequireAuth — wrapper that gates content behind auth
+Import from './auth' or '../auth'. When adding auth, just import and use
+these — don't reinstall or reconfigure Clerk.
+Example: wrap a page with <RequireAuth><DashboardPage /></RequireAuth>
+Example: add <UserButton /> in a nav bar
+Example: get user ID with const { userId } = useAuth()`;
 
 export const QUICK_EDIT_SYSTEM_PROMPT = `You are an expert developer. The user wants a specific change to their
 existing application. Make the change efficiently.

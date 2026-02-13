@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { getLLMConfig, saveLLMConfig, type LLMConfig } from '@/lib/llm/config';
+import { getLLMConfig, saveLLMConfig, hasDefaultKey, type LLMConfig } from '@/lib/llm/config';
 import { PROVIDER_PRESETS } from '@/lib/llm/providers';
 import { Key, Server, Cpu, Eye, EyeOff, Check } from 'lucide-react';
 
@@ -105,7 +105,9 @@ export default function LLMConfigPanel() {
               </Button>
             </div>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Stored in your browser only. Never sent to our servers.
+              {hasDefaultKey() && !config.apiKey
+                ? 'Using the built-in API key. Add your own to override it.'
+                : 'Stored in your browser only. Never sent to our servers.'}
             </p>
           </div>
 

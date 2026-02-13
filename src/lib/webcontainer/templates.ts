@@ -119,12 +119,26 @@ export default defineConfig({
         file: {
           contents: `import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ClerkProvider } from '@clerk/clerk-react';
 import App from './App';
 import './index.css';
 
+const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined;
+
+function Root() {
+  if (clerkKey) {
+    return (
+      <ClerkProvider publishableKey={clerkKey}>
+        <App />
+      </ClerkProvider>
+    );
+  }
+  return <App />;
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <Root />
   </StrictMode>
 );
 `,
@@ -146,6 +160,47 @@ export default function App() {
       </Routes>
     </BrowserRouter>
   );
+}
+`,
+        },
+      },
+      'auth.tsx': {
+        file: {
+          contents: `/**
+ * Auth helpers — wraps Clerk for easy use throughout the app.
+ * Import { useAuth, SignInButton, UserButton, RequireAuth } from './auth';
+ *
+ * Clerk is optional: if no VITE_CLERK_PUBLISHABLE_KEY is set,
+ * auth components gracefully render nothing / pass-through.
+ */
+import { useUser, useAuth as useClerkAuth, SignInButton as ClerkSignIn, UserButton as ClerkUserButton } from '@clerk/clerk-react';
+import type { ReactNode } from 'react';
+
+const hasClerk = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+
+export function useAuth() {
+  if (!hasClerk) return { isSignedIn: true, userId: 'local', user: null, isLoaded: true };
+  const { isSignedIn, userId, isLoaded } = useClerkAuth();
+  const { user } = useUser();
+  return { isSignedIn: isSignedIn ?? false, userId: userId ?? null, user, isLoaded };
+}
+
+export function SignInButton({ children }: { children?: ReactNode }) {
+  if (!hasClerk) return null;
+  return <ClerkSignIn mode="modal">{children}</ClerkSignIn>;
+}
+
+export function UserButton() {
+  if (!hasClerk) return null;
+  return <ClerkUserButton afterSignOutUrl="/" />;
+}
+
+export function RequireAuth({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
+  const { isSignedIn, isLoaded } = useAuth();
+  if (!hasClerk) return <>{children}</>;
+  if (!isLoaded) return <div className="flex items-center justify-center min-h-screen"><div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" /></div>;
+  if (!isSignedIn) return <>{fallback ?? <div className="flex flex-col items-center justify-center min-h-screen gap-4"><p className="text-zinc-400">Sign in to continue</p><SignInButton><button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors">Sign In</button></SignInButton></div>}</>;
+  return <>{children}</>;
 }
 `,
         },
