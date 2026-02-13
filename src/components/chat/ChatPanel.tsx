@@ -22,9 +22,8 @@ export default function ChatPanel() {
       return false;
     }
     if (m.role !== 'system') return true;
-    // Hide nudge and retry messages
+    // Hide internal nudge messages (but show LLM errors so user can debug)
     if (m.content.startsWith('Nudging AI')) return false;
-    if (m.content.includes('Retrying in')) return false;
     if (m.content.includes('malformed arguments')) return false;
     return true;
   });

@@ -352,20 +352,21 @@ async function runLoop({
       consecutiveErrors++;
       chatStore.updateMessage(msgId, { isStreaming: false });
 
+      const errDetail = err instanceof Error ? err.message : String(err);
+
       if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
         chatStore.addMessage({
           role: 'system',
-          content: "I'm hitting repeated errors calling the LLM. Please check your API key and model settings.",
+          content: `Repeated LLM errors (${consecutiveErrors}x). Last error: ${errDetail}\n\nCheck your API key and model settings. Common causes: rate limits, expired key, unsupported model, or network issues.`,
         });
         break;
       }
 
       // Auto-retry with exponential backoff
       const delay = Math.min(1000 * Math.pow(2, consecutiveErrors - 1), 8000);
-      const errDetail = err instanceof Error ? err.message : String(err);
       chatStore.addMessage({
         role: 'system',
-        content: `LLM error: ${errDetail}. Retrying in ${delay / 1000}s...`,
+        content: `LLM error: ${errDetail}. Retrying in ${delay / 1000}s... (attempt ${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS})`,
       });
       await new Promise((r) => setTimeout(r, delay));
       continue;
