@@ -257,7 +257,7 @@ async function runLoop({
   let iterations = 0;
   let consecutiveErrors = 0;
   let nudgesUsed = 0;
-  const MAX_NUDGES = 5;
+  const MAX_NUDGES = 10;
   let hasWrittenFiles = false;
   let taskCompleted = false;
   let hadMalformedToolCall = false;
@@ -539,6 +539,10 @@ async function runLoop({
     }
 
     agentStore.setCurrentTool(null);
+
+    // Reset nudge counter after successful tool calls — nudges only
+    // count consecutive text-only responses, not total across the loop
+    nudgesUsed = 0;
 
     if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
       chatStore.addMessage({
