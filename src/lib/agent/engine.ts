@@ -14,12 +14,30 @@ const CONTEXT_TOKEN_BUDGET = 100000;
 // Internal conversation state (full history including tool results)
 let conversation: LLMMessage[] = [];
 
+// Guard against concurrent agent loops
+let activeLoopId = 0;
+
 export function getConversation(): LLMMessage[] {
   return conversation;
 }
 
 export function clearConversation() {
   conversation = [];
+}
+
+/**
+ * Stop any running agent and fully reset state for a new project.
+ * Call this BEFORE starting a new agent loop on project switch.
+ */
+export function resetAgentForNewProject() {
+  // Abort any running agent
+  const agentStore = useAgentStore.getState();
+  agentStore.stop();
+  agentStore.reset();
+  // Clear conversation history
+  conversation = [];
+  // Invalidate any running loop
+  activeLoopId++;
 }
 
 /**
@@ -38,12 +56,19 @@ export async function runAgentLoop(userMessage: string) {
     return;
   }
 
+  // Stop any previously running loop
+  if (agentStore.isRunning) {
+    agentStore.stop();
+  }
+
   // Add user message
   if (userMessage.trim()) {
     conversation.push({ role: 'user', content: userMessage });
     chatStore.addMessage({ role: 'user', content: userMessage });
   }
 
+  // Each loop gets a unique ID; if another loop starts, this one exits
+  const myLoopId = ++activeLoopId;
   const abortController = new AbortController();
   agentStore.setAbortController(abortController);
   agentStore.setRunning(true);
@@ -158,8 +183,13 @@ async function runLoop({
   let taskCompleted = false;
   let hadMalformedToolCall = false;
 
+  // Capture the loop ID so we can detect if we've been superseded
+  const myId = activeLoopId;
+
   while (iterations < MAX_ITERATIONS) {
     if (signal.aborted) break;
+    // Another loop started — bail out
+    if (activeLoopId !== myId) break;
 
     iterations++;
     agentStore.incrementIteration();

@@ -18,11 +18,11 @@ import { useChatStore } from '@/lib/store/chat';
 import { getWebContainer, teardownWebContainer } from '@/lib/webcontainer/instance';
 import { buildFileTree } from '@/lib/webcontainer/filesystem';
 import { startProcess, onServerReady, spawnCommand } from '@/lib/webcontainer/process';
-import { appendTerminalLine } from '@/components/preview/TerminalPanel';
+import { appendTerminalLine, clearTerminal } from '@/components/preview/TerminalPanel';
 import { TEMPLATES, type TemplateName } from '@/lib/webcontainer/templates';
 import { commitFiles } from '@/lib/github/api';
 import { listFilesRecursive, readFile } from '@/lib/webcontainer/filesystem';
-import { clearConversation, getConversation, runAgentLoop } from '@/lib/agent/engine';
+import { clearConversation, getConversation, resetAgentForNewProject, runAgentLoop } from '@/lib/agent/engine';
 import { cn } from '@/lib/utils/format';
 import { getProjectsKey } from '@/lib/utils/storage';
 
@@ -83,6 +83,10 @@ export default function EditorPage() {
     if (!project) return;
 
     let mounted = true;
+
+    // Hard reset: stop any running agent, clear conversation, clear terminal
+    resetAgentForNewProject();
+    clearTerminal();
 
     async function boot() {
       try {
@@ -160,8 +164,7 @@ export default function EditorPage() {
   useEffect(() => {
     return () => {
       useChatStore.getState().saveToStorage();
-      clearConversation();
-      useAgentStore.getState().reset();
+      resetAgentForNewProject();
       // Kill dev server to free the port
       if (devServerRef.current) {
         devServerRef.current.kill();

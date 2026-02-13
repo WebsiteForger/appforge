@@ -8,9 +8,25 @@ const terminalLines: string[] = [];
 const MAX_LINES = 500;
 let listeners: Set<() => void> = new Set();
 
-// Strip ANSI escape codes so terminal output is readable
+// Strip ANSI escape codes and control sequences so terminal output is readable
 function stripAnsi(str: string): string {
-  return str.replace(/\x1b\[[0-9;]*[a-zA-Z]|\x1b\[\?[0-9;]*[a-zA-Z]|\x1b\][^\x07]*\x07/g, '');
+  return str
+    // Standard ANSI escape sequences: ESC[ ... letter
+    .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+    // ANSI ? sequences: ESC[? ... letter
+    .replace(/\x1b\[\?[0-9;]*[a-zA-Z]/g, '')
+    // OSC sequences: ESC] ... BEL
+    .replace(/\x1b\][^\x07]*\x07/g, '')
+    // Bare ESC character
+    .replace(/\x1b/g, '')
+    // Carriage return (used by progress indicators)
+    .replace(/\r/g, '')
+    // Leftover bracket sequences that lost their ESC (e.g. "[0K", "[1G", "[1;1H")
+    .replace(/\[([0-9;]*[A-HJKSTfmnsulh])/g, '')
+    // Cursor position sequences like [1;1H
+    .replace(/\[\d+;\d+H/g, '')
+    // Erase sequences like [0J, [2J
+    .replace(/\[\d*[JK]/g, '');
 }
 
 export function appendTerminalLine(data: string) {

@@ -289,9 +289,12 @@ export const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   run_command: async (args) => {
     const command = (args.command as string).trim();
 
+    // Normalize: collapse whitespace, lowercase for matching
+    const normalized = command.replace(/\s+/g, ' ').toLowerCase();
+
     // Block long-running/server commands — the boot process already handles these
-    const blocked = ['npm run dev', 'npm start', 'npx vite', 'vite', 'node server', 'yarn dev', 'pnpm dev'];
-    if (blocked.some((b) => command.startsWith(b))) {
+    const blocked = ['npm run dev', 'npm start', 'npx vite', 'vite', 'node server', 'yarn dev', 'pnpm dev', 'npx serve', 'http-server'];
+    if (blocked.some((b) => normalized.startsWith(b))) {
       return 'Error: Dev server is already running (started automatically). Do not start it yourself. Use check_errors() or screenshot() to verify the app.';
     }
 
