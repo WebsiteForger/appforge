@@ -25,6 +25,7 @@ import { listFilesRecursive, readFile } from '@/lib/webcontainer/filesystem';
 import { clearConversation, getConversation, resetAgentForNewProject, runAgentLoop } from '@/lib/agent/engine';
 import { cn } from '@/lib/utils/format';
 import { getProjectsKey } from '@/lib/utils/storage';
+import { saveFileSnapshot, loadFileSnapshot, filesToFileSystemTree } from '@/lib/store/file-persistence';
 
 type MobileTab = 'chat' | 'code' | 'preview';
 
@@ -40,7 +41,7 @@ export default function EditorPage() {
   const [booting, setBooting] = useState(true);
   const [mobileTab, setMobileTab] = useState<MobileTab>('chat');
   const [saving, setSaving] = useState(false);
-  const [showEditor, setShowEditor] = useState(true);
+  const [showEditor, setShowEditor] = useState(false);
   const prevProjectIdRef = useRef<string | undefined>(undefined);
   const devServerRef = useRef<{ kill: () => void } | null>(null);
 
@@ -96,12 +97,30 @@ export default function EditorPage() {
         if (!mounted) return;
         appendTerminalLine('WebContainer ready.');
 
+        // Expose projectId for tools (e.g. task_complete auto-save)
+        (window as any).__appforge_projectId = project!.id;
+
         // Mount template
         const templateName = (project!.template || 'react-netlify') as TemplateName;
         const template = TEMPLATES[templateName] ?? TEMPLATES['react-netlify'];
 
         appendTerminalLine(`$ Mounting template: ${templateName}`);
         await wc.mount(template);
+
+        // Restore saved files from IndexedDB (overlay on top of template)
+        let hasRestoredFiles = false;
+        try {
+          const snapshot = await loadFileSnapshot(project!.id);
+          if (snapshot && Object.keys(snapshot).length > 0) {
+            appendTerminalLine('Restoring saved files...');
+            const savedTree = filesToFileSystemTree(snapshot);
+            await wc.mount(savedTree);
+            hasRestoredFiles = true;
+            appendTerminalLine(`Restored ${Object.keys(snapshot).length} files.`);
+          }
+        } catch (err) {
+          appendTerminalLine(`Warning: Could not restore files: ${err}`);
+        }
 
         // Refresh file tree
         const tree = await buildFileTree();
@@ -133,8 +152,8 @@ export default function EditorPage() {
         setBooting(false);
 
         // Auto-send project description on FIRST EVER open only.
-        // If chat already has messages (persisted or from this session), skip.
-        if (useChatStore.getState().messages.length === 0) {
+        // Skip if files were restored or chat has history.
+        if (!hasRestoredFiles && useChatStore.getState().messages.length === 0) {
           // First open: force plan mode so the AI plans before building
           const agentState = useAgentStore.getState();
           agentState.setAutoProceed(false);
@@ -160,10 +179,14 @@ export default function EditorPage() {
     };
   }, [project, setFileTree]);
 
-  // Save chat and clean up on unmount
+  // Save chat, file snapshot, and clean up on unmount
   useEffect(() => {
     return () => {
       useChatStore.getState().saveToStorage();
+      // Save file snapshot when leaving the editor
+      if (projectId) {
+        saveFileSnapshot(projectId).catch(() => {});
+      }
       resetAgentForNewProject();
       // Kill dev server to free the port
       if (devServerRef.current) {
@@ -171,7 +194,7 @@ export default function EditorPage() {
         devServerRef.current = null;
       }
     };
-  }, []);
+  }, [projectId]);
 
   // Periodically refresh file tree when agent is working
   useEffect(() => {
@@ -186,6 +209,15 @@ export default function EditorPage() {
     }, 3000);
     return () => clearInterval(interval);
   }, [isRunning, setFileTree]);
+
+  // Auto-save file snapshot every 30s while agent is running
+  useEffect(() => {
+    if (!isRunning || !projectId) return;
+    const interval = setInterval(() => {
+      saveFileSnapshot(projectId).catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [isRunning, projectId]);
 
   async function handleSave() {
     if (!project?.githubRepo || saving) return;

@@ -1,3 +1,5 @@
+import { verifyAuth, unauthorized } from './lib/auth';
+
 const NETLIFY_TOKEN = process.env.NETLIFY_AUTH_TOKEN!;
 const NETLIFY_ACCOUNT = process.env.NETLIFY_ACCOUNT_SLUG!;
 const NETLIFY_ACCOUNT_ID = process.env.NETLIFY_ACCOUNT_ID!;
@@ -25,6 +27,12 @@ async function netlifyFetch(path: string, options: RequestInit = {}) {
 export default async (req: Request) => {
   if (req.method !== 'POST') {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
+  }
+
+  try {
+    await verifyAuth(req);
+  } catch {
+    return unauthorized();
   }
 
   const { repoName, includeAuth } = await req.json();

@@ -1,3 +1,5 @@
+import { verifyAuth, unauthorized } from './lib/auth';
+
 const NETLIFY_TOKEN = process.env.NETLIFY_AUTH_TOKEN!;
 const API = 'https://api.netlify.com/api/v1';
 
@@ -18,6 +20,13 @@ async function netlifyFetch(path: string, options: RequestInit = {}) {
 }
 
 export default async (req: Request) => {
+  // Auth check for all methods
+  try {
+    await verifyAuth(req);
+  } catch {
+    return unauthorized();
+  }
+
   // GET: Check deploy status
   if (req.method === 'GET') {
     const url = new URL(req.url);

@@ -52,7 +52,70 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    {
+      name: 'netlify-functions-dev',
+      configureServer(server) {
+        server.middlewares.use(async (req, res, next) => {
+          var url = req.url || '';
+          var funcPrefix = '/.netlify/functions/';
+          var isDevSql = url.startsWith('/__dev/sql');
+          var isFunc = url.startsWith(funcPrefix);
+
+          if (!isFunc && !isDevSql) return next();
+
+          var funcName;
+          if (isDevSql) {
+            funcName = 'dev-sql';
+          } else {
+            funcName = url.slice(funcPrefix.length).split('?')[0].split('/')[0];
+          }
+
+          var modulePath = '/netlify/functions/' + funcName + '.ts';
+
+          try {
+            var mod = await server.ssrLoadModule(modulePath);
+            var handler = mod.default;
+            if (!handler) {
+              res.statusCode = 404;
+              res.end(JSON.stringify({ error: 'No handler for ' + funcName }));
+              return;
+            }
+
+            var body = '';
+            if (req.method !== 'GET' && req.method !== 'HEAD') {
+              var chunks = [];
+              for await (var chunk of req) chunks.push(chunk);
+              body = Buffer.concat(chunks).toString();
+            }
+
+            var fullUrl = 'http://' + (req.headers.host || 'localhost') + req.url;
+            var headers = new Headers();
+            for (var _a of Object.entries(req.headers)) {
+              if (_a[1]) headers.set(_a[0], Array.isArray(_a[1]) ? _a[1].join(', ') : _a[1]);
+            }
+
+            var init = { method: req.method, headers };
+            if (body) init.body = body;
+
+            var request = new Request(fullUrl, init);
+            var response = await handler(request);
+
+            res.statusCode = response.status;
+            response.headers.forEach(function(v, k) { res.setHeader(k, v); });
+            var resBody = await response.text();
+            res.end(resBody);
+          } catch (err) {
+            console.error('Function error:', err);
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err.message || 'Internal error' }));
+          }
+        });
+      },
+    },
+  ],
 });
 `,
     },
@@ -171,7 +234,7 @@ export default function App() {
  * Import { useAuth, SignInButton, UserButton, RequireAuth } from './auth';
  *
  * Clerk is optional: if no VITE_CLERK_PUBLISHABLE_KEY is set,
- * auth components gracefully render nothing / pass-through.
+ * auth components show dev placeholders instead.
  */
 import { useUser, useAuth as useClerkAuth, SignInButton as ClerkSignIn, UserButton as ClerkUserButton } from '@clerk/clerk-react';
 import type { ReactNode } from 'react';
@@ -186,12 +249,30 @@ export function useAuth() {
 }
 
 export function SignInButton({ children }: { children?: ReactNode }) {
-  if (!hasClerk) return null;
+  if (!hasClerk) {
+    return (
+      <button
+        onClick={function() { console.log('[Dev] Auth not configured'); }}
+        className="px-3 py-1.5 text-sm bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors"
+      >
+        {children || 'Sign In'}
+      </button>
+    );
+  }
   return <ClerkSignIn mode="modal">{children}</ClerkSignIn>;
 }
 
 export function UserButton() {
-  if (!hasClerk) return null;
+  if (!hasClerk) {
+    return (
+      <div className="w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center" title="Dev Mode">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+      </div>
+    );
+  }
   return <ClerkUserButton afterSignOutUrl="/" />;
 }
 

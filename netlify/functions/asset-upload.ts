@@ -1,6 +1,14 @@
+import { verifyAuth, unauthorized } from './lib/auth';
+
 export default async (req: Request) => {
   if (req.method !== 'POST') {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
+  }
+
+  try {
+    await verifyAuth(req);
+  } catch {
+    return unauthorized();
   }
 
   try {

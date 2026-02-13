@@ -4,6 +4,8 @@
  * Uses the same Netlify account as SiteForge.
  */
 
+import { authFetch } from '../utils/auth-fetch';
+
 export interface DeployResult {
   siteId: string;
   siteName: string;
@@ -23,7 +25,7 @@ export interface DeployStatus {
  * Create a new Netlify site linked to a GitHub repo
  */
 export async function createSite(repoName: string, includeAuth = false): Promise<DeployResult> {
-  const res = await fetch('/.netlify/functions/deploy-create-site', {
+  const res = await authFetch('/.netlify/functions/deploy-create-site', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ repoName, includeAuth }),
@@ -41,7 +43,7 @@ export async function createSite(repoName: string, includeAuth = false): Promise
  * Trigger a deploy for an existing site
  */
 export async function triggerDeploy(siteId: string): Promise<{ deployId: string }> {
-  const res = await fetch('/.netlify/functions/deploy-trigger', {
+  const res = await authFetch('/.netlify/functions/deploy-trigger', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ siteId }),
@@ -59,7 +61,7 @@ export async function triggerDeploy(siteId: string): Promise<{ deployId: string 
  * Poll deploy status
  */
 export async function getDeployStatus(siteId: string): Promise<DeployStatus | null> {
-  const res = await fetch(`/.netlify/functions/deploy-trigger?siteId=${siteId}`, {
+  const res = await authFetch(`/.netlify/functions/deploy-trigger?siteId=${siteId}`, {
     method: 'GET',
   });
 

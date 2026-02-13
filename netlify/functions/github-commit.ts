@@ -1,10 +1,17 @@
 import { Octokit } from '@octokit/rest';
+import { verifyAuth, unauthorized } from './lib/auth';
 
 const GITHUB_ORG = process.env.GITHUB_ORG!;
 
 export default async (req: Request) => {
   if (req.method !== 'POST') {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
+  }
+
+  try {
+    await verifyAuth(req);
+  } catch {
+    return unauthorized();
   }
 
   const { repo, files, message } = await req.json();

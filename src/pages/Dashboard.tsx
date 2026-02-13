@@ -100,12 +100,20 @@ export default function Dashboard() {
     navigate(`/editor/${project.id}`);
   }
 
-  function deleteProject(e: React.MouseEvent, projectId: string) {
+  async function deleteProject(e: React.MouseEvent, projectId: string) {
     e.stopPropagation();
     if (!confirm('Delete this project? This cannot be undone.')) return;
     const updated = projects.filter((p) => p.id !== projectId);
     setProjects(updated);
     localStorage.setItem(getProjectsKey(userId), JSON.stringify(updated));
+
+    // Clean up IndexedDB file snapshot
+    try {
+      const { deleteFileSnapshot } = await import('@/lib/store/file-persistence');
+      await deleteFileSnapshot(projectId);
+    } catch {
+      // Non-fatal
+    }
   }
 
   // Show loading while Clerk is initializing to avoid flashing stale data

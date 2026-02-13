@@ -378,7 +378,23 @@ export const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
 
   task_complete: async (args) => {
     const summary = args.summary as string;
-    return `TASK_COMPLETE: ${summary}`;
+
+    // Add a friendly completion message to chat
+    useChatStore.getState().addMessage({
+      role: 'assistant',
+      content: `Build complete! Here's what was built:\n\n${summary}`,
+    });
+
+    // Save file snapshot to IndexedDB
+    try {
+      const { saveFileSnapshot } = await import('../store/file-persistence');
+      const projectId = (window as any).__appforge_projectId;
+      if (projectId) await saveFileSnapshot(projectId);
+    } catch {
+      // Non-fatal
+    }
+
+    return 'Task completed successfully.';
   },
 
   db_tables: async () => {

@@ -4,7 +4,7 @@
  * Uses the same GitHub org as SiteForge.
  */
 
-const GITHUB_ORG = typeof process !== 'undefined' ? process.env?.GITHUB_ORG ?? '' : '';
+import { authFetch } from '../utils/auth-fetch';
 
 export interface CreateRepoPayload {
   projectName: string;
@@ -23,7 +23,7 @@ export interface CommitFilesPayload {
  * Client-side: call our Netlify Function to create a repo
  */
 export async function createRepo(projectName: string): Promise<{ repo: string; url: string }> {
-  const res = await fetch('/.netlify/functions/github-create-repo', {
+  const res = await authFetch('/.netlify/functions/github-create-repo', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ projectName }),
@@ -45,7 +45,7 @@ export async function commitFiles(
   files: { path: string; content: string }[],
   message: string = 'Update from AppForge',
 ): Promise<{ sha: string }> {
-  const res = await fetch('/.netlify/functions/github-commit', {
+  const res = await authFetch('/.netlify/functions/github-commit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ repo, files, message }),
@@ -65,7 +65,7 @@ export async function commitFiles(
 export async function getRepoFiles(
   repo: string,
 ): Promise<{ path: string; content: string }[]> {
-  const res = await fetch('/.netlify/functions/github-get-files', {
+  const res = await authFetch('/.netlify/functions/github-get-files', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ repo }),

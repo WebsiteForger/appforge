@@ -18,6 +18,7 @@ function ToolCallCard({ toolCall }: { toolCall: ToolCallInfo }) {
     search_files: 'Searching',
     run_sql: 'Running SQL',
     db_tables: 'Listing tables',
+    task_complete: 'Build complete',
   };
 
   const label = toolLabels[toolCall.name] ?? toolCall.name;

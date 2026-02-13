@@ -1,4 +1,5 @@
 import { Octokit } from '@octokit/rest';
+import { verifyAuth, unauthorized } from './lib/auth';
 
 const GITHUB_ORG = process.env.GITHUB_ORG!;
 
@@ -11,7 +12,12 @@ export default async (req: Request) => {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  // TODO: Verify Clerk auth token from request headers
+  try {
+    await verifyAuth(req);
+  } catch {
+    return unauthorized();
+  }
+
   const { projectName } = await req.json();
 
   if (!projectName || !/^[a-z0-9-]+$/.test(projectName)) {
