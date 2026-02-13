@@ -1,6 +1,7 @@
 import { streamChatCompletion, type LLMMessage, type LLMToolCall } from '../llm/client';
 import { getLLMConfig, isConfigured } from '../llm/config';
 import { TOOL_DEFINITIONS, TOOL_EXECUTORS } from './tools';
+import { formatErrorReport } from './errors';
 import { PLAN_SYSTEM_PROMPT, BUILD_SYSTEM_PROMPT, QUICK_EDIT_SYSTEM_PROMPT } from './prompts';
 import { parseXMLToolCalls, buildXMLToolInstructions } from './parser';
 import { trimConversation, estimateMessageTokens, truncateToolResult } from './context';
@@ -342,9 +343,17 @@ async function runLoop({
       const isBuildPhase = useAgentStore.getState().phase === 'building';
       if (isBuildPhase && !taskCompleted && nudgesUsed < MAX_NUDGES) {
         nudgesUsed++;
-        const nudge = hasWrittenFiles
-          ? 'You haven\'t called task_complete yet. If the app is fully working, call task_complete with a summary. Otherwise keep building — write more files, fix errors, and verify with screenshot().'
-          : 'Continue. Start writing the code files now using write_file. Build the complete application step by step. When fully done, call task_complete.';
+        // Check for current errors and include them in the nudge
+        const errorReport = formatErrorReport();
+        const hasErrors = !errorReport.includes('No errors detected');
+        let nudge: string;
+        if (!hasWrittenFiles) {
+          nudge = 'Continue. Start writing the code files now using write_file. Build the complete application step by step. When fully done, call task_complete.';
+        } else if (hasErrors) {
+          nudge = `There are errors in the app that need fixing:\n\n${errorReport}\n\nPlease fix these errors, then continue building. Use check_errors() after fixing to verify.`;
+        } else {
+          nudge = 'You haven\'t called task_complete yet. If the app is fully working, call task_complete with a summary. Otherwise keep building — write more files, fix errors, take a screenshot() to verify the UI, and then call task_complete when done.';
+        }
         conversation.push({ role: 'user', content: nudge });
         continue;
       }

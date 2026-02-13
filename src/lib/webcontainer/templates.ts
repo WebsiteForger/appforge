@@ -225,6 +225,7 @@ body {
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http';
 
 let _db: any = null;
+let _rawClient: any = null;
 
 export async function getDb() {
   if (_db) return _db;
@@ -237,11 +238,17 @@ export async function getDb() {
   } else {
     // DEVELOPMENT: Use PGlite (in-memory Postgres WASM)
     const { PGlite } = await import('@electric-sql/pglite');
-    const client = new PGlite();
-    _db = drizzle(client);
+    _rawClient = new PGlite();
+    _db = drizzle(_rawClient);
   }
 
   return _db;
+}
+
+/** Get the raw PGlite client for direct SQL queries (dev only) */
+export async function getRawClient() {
+  if (!_rawClient) await getDb();
+  return _rawClient;
 }
 `,
             },
@@ -274,6 +281,8 @@ export async function getDb() {
             file: {
               contents: `// Dev-only SQL endpoint for the AI agent
 // Allows running raw SQL against the local PGlite database
+// Uses the SAME PGlite instance as the rest of the app via getRawClient()
+import { getRawClient } from '../../src/lib/db';
 
 export default async (req: Request) => {
   // Only allow in development (no DATABASE_URL = dev mode)
@@ -283,8 +292,7 @@ export default async (req: Request) => {
 
   try {
     const { sql } = await req.json();
-    const { PGlite } = await import('@electric-sql/pglite');
-    const client = new PGlite();
+    const client = await getRawClient();
     const result = await client.query(sql);
     return Response.json({ rows: result.rows });
   } catch (err: any) {
