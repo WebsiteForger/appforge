@@ -42,6 +42,7 @@ export default function EditorPage() {
   const [saving, setSaving] = useState(false);
   const [showEditor, setShowEditor] = useState(true);
   const prevProjectIdRef = useRef<string | undefined>(undefined);
+  const devServerRef = useRef<{ kill: () => void } | null>(null);
 
   // Load chat history and clear agent state when projectId changes
   useEffect(() => {
@@ -106,9 +107,16 @@ export default function EditorPage() {
         appendTerminalLine('$ npm install');
         await spawnCommand('npm install', (data) => appendTerminalLine(data));
 
+        // Kill previous dev server if any
+        if (devServerRef.current) {
+          devServerRef.current.kill();
+          devServerRef.current = null;
+        }
+
         // Start dev server
         appendTerminalLine('$ npm run dev');
-        await startProcess('npm run dev', (data) => appendTerminalLine(data));
+        const server = await startProcess('npm run dev', (data) => appendTerminalLine(data));
+        devServerRef.current = server;
 
         // Inject project context for the AI
         const authNote = project!.includeAuth
@@ -148,6 +156,11 @@ export default function EditorPage() {
       useChatStore.getState().saveToStorage();
       clearConversation();
       useAgentStore.getState().reset();
+      // Kill dev server to free the port
+      if (devServerRef.current) {
+        devServerRef.current.kill();
+        devServerRef.current = null;
+      }
     };
   }, []);
 

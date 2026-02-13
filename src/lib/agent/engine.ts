@@ -156,6 +156,7 @@ async function runLoop({
   const MAX_NUDGES = 5;
   let hasWrittenFiles = false;
   let taskCompleted = false;
+  let hadMalformedToolCall = false;
 
   while (iterations < MAX_ITERATIONS) {
     if (signal.aborted) break;
@@ -217,11 +218,8 @@ async function runLoop({
               try {
                 parsedArgs = JSON.parse(chunk.toolCall.function!.arguments || '{}');
               } catch {
-                // Truncated/malformed tool call — skip it entirely
-                chatStore.addMessage({
-                  role: 'system',
-                  content: `Tool call "${chunk.toolCall.function!.name}" had malformed arguments (response was likely truncated). Retrying...`,
-                });
+                // Malformed tool call — flag it so we auto-retry
+                hadMalformedToolCall = true;
                 break;
               }
               toolCalls.push(chunk.toolCall as LLMToolCall);
@@ -289,6 +287,21 @@ async function runLoop({
     }
 
     chatStore.updateMessage(msgId, { isStreaming: false });
+
+    // ── Malformed tool call = retry silently ──
+    if (hadMalformedToolCall && toolCalls.length === 0) {
+      hadMalformedToolCall = false;
+      // Add the text to conversation, then nudge to retry
+      if (fullText) {
+        conversation.push({ role: 'assistant', content: fullText });
+      }
+      conversation.push({
+        role: 'user',
+        content: 'Your last tool call had malformed JSON arguments. Please try again — make sure write_file content is properly escaped JSON.',
+      });
+      chatStore.updateMessage(msgId, { isStreaming: false });
+      continue;
+    }
 
     // ── No tool calls = agent wants to stop ──
     if (toolCalls.length === 0) {

@@ -20,7 +20,7 @@ const DEFAULT_CONFIG: LLMConfig = {
   apiKey: 'platform',        // placeholder — proxy ignores this
   model: 'openrouter/aurora-alpha',
   maxTokens: 128000,          // context budget for conversation trimming
-  maxOutputTokens: 16384,     // max output per LLM response (sent as max_tokens)
+  maxOutputTokens: 32768,     // max output per LLM response (sent as max_tokens)
   supportsToolUse: true,
   supportsVision: true,
 };

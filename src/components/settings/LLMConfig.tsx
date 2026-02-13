@@ -24,7 +24,7 @@ export default function LLMConfigPanel() {
         apiKey: 'platform',
         model: 'openrouter/aurora-alpha',
         maxTokens: 128000,
-        maxOutputTokens: 16384,
+        maxOutputTokens: 32768,
         supportsToolUse: true,
         supportsVision: true,
       });
