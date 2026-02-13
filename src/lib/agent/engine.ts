@@ -152,6 +152,9 @@ async function runLoop({
 
   let iterations = 0;
   let consecutiveErrors = 0;
+  let nudgesUsed = 0;
+  const MAX_NUDGES = 3;
+  let hasWrittenFiles = false;
 
   while (iterations < MAX_ITERATIONS) {
     if (signal.aborted) break;
@@ -274,9 +277,21 @@ async function runLoop({
 
     chatStore.updateMessage(msgId, { isStreaming: false });
 
-    // ── No tool calls = agent is done with this phase ──
+    // ── No tool calls = agent wants to stop ──
     if (toolCalls.length === 0) {
       conversation.push({ role: 'assistant', content: fullText });
+
+      // In build mode, if the AI hasn't written any files yet and just
+      // talked/read files, nudge it to actually start building.
+      const isBuildPhase = useAgentStore.getState().phase === 'building';
+      if (isBuildPhase && !hasWrittenFiles && nudgesUsed < MAX_NUDGES) {
+        nudgesUsed++;
+        const nudge = 'Continue. Start writing the code files now using write_file. Build the complete application step by step.';
+        conversation.push({ role: 'user', content: nudge });
+        chatStore.addMessage({ role: 'system', content: 'Nudging AI to continue building...' });
+        continue;
+      }
+
       break;
     }
 
@@ -292,6 +307,8 @@ async function runLoop({
 
       const toolName = tc.function.name;
       const executor = TOOL_EXECUTORS[toolName];
+
+      if (toolName === 'write_file') hasWrittenFiles = true;
 
       agentStore.setCurrentTool(toolName);
 
