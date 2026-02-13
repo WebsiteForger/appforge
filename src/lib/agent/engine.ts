@@ -1,5 +1,5 @@
 import { streamChatCompletion, type LLMMessage, type LLMToolCall } from '../llm/client';
-import { getLLMConfig } from '../llm/config';
+import { getLLMConfig, isConfigured } from '../llm/config';
 import { TOOL_DEFINITIONS, TOOL_EXECUTORS } from './tools';
 import { PLAN_SYSTEM_PROMPT, BUILD_SYSTEM_PROMPT, QUICK_EDIT_SYSTEM_PROMPT } from './prompts';
 import { parseXMLToolCalls, buildXMLToolInstructions } from './parser';
@@ -30,7 +30,7 @@ export async function runAgentLoop(userMessage: string) {
   const chatStore = useChatStore.getState();
   const config = getLLMConfig();
 
-  if (!config.apiKey) {
+  if (!isConfigured()) {
     chatStore.addMessage({
       role: 'system',
       content: 'Please configure your LLM API key in Settings before using the AI assistant.',

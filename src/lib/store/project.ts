@@ -5,6 +5,7 @@ export interface Project {
   name: string;
   description: string;
   template: string;
+  includeAuth: boolean;
   githubRepo: string | null;
   netlifyUrl: string | null;
   netlifySiteId: string | null;

@@ -1,4 +1,5 @@
 import type { LLMConfig } from './config';
+import { isUsingProxy } from './config';
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -56,12 +57,20 @@ export async function* streamChatCompletion(
     body.tool_choice = 'auto';
   }
 
-  const response = await fetch(`${config.baseUrl}/chat/completions`, {
+  // When using the platform proxy, POST directly to the proxy endpoint
+  // (it forwards to OpenRouter). Otherwise hit the provider's /chat/completions.
+  const url = isUsingProxy()
+    ? config.baseUrl
+    : `${config.baseUrl}/chat/completions`;
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!isUsingProxy()) {
+    headers['Authorization'] = `Bearer ${config.apiKey}`;
+  }
+
+  const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${config.apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(body),
     signal,
   });
@@ -199,12 +208,18 @@ export async function chatCompletion(
     body.tool_choice = 'auto';
   }
 
-  const response = await fetch(`${config.baseUrl}/chat/completions`, {
+  const url = isUsingProxy()
+    ? config.baseUrl
+    : `${config.baseUrl}/chat/completions`;
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!isUsingProxy()) {
+    headers['Authorization'] = `Bearer ${config.apiKey}`;
+  }
+
+  const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${config.apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(body),
   });
 

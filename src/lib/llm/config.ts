@@ -9,11 +9,13 @@ export interface LLMConfig {
 
 const STORAGE_KEY = 'appforge-llm-config';
 
-// Platform default: OpenRouter with Aurora Alpha
-// Falls back to VITE_DEFAULT_LLM_KEY so the platform owner can provide a key
+// The proxy path routes through our Netlify Function which injects the
+// real OpenRouter API key server-side — users never see it.
+const PROXY_BASE_URL = '/.netlify/functions/llm-proxy';
+
 const DEFAULT_CONFIG: LLMConfig = {
-  baseUrl: 'https://openrouter.ai/api/v1',
-  apiKey: import.meta.env.VITE_DEFAULT_LLM_KEY ?? '',
+  baseUrl: PROXY_BASE_URL,
+  apiKey: 'platform',        // placeholder — proxy ignores this
   model: 'openrouter/aurora-alpha',
   maxTokens: 16384,
   supportsToolUse: true,
@@ -45,9 +47,13 @@ export function clearLLMConfig() {
 
 export function isConfigured(): boolean {
   const config = getLLMConfig();
+  // Always configured when using the built-in proxy
+  if (isUsingProxy()) return true;
   return Boolean(config.apiKey && config.baseUrl && config.model);
 }
 
-export function hasDefaultKey(): boolean {
-  return Boolean(import.meta.env.VITE_DEFAULT_LLM_KEY);
+/** True when the user hasn't set a custom provider (using platform AI) */
+export function isUsingProxy(): boolean {
+  const config = getLLMConfig();
+  return config.baseUrl === PROXY_BASE_URL || config.apiKey === 'platform';
 }

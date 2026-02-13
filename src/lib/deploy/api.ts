@@ -22,11 +22,11 @@ export interface DeployStatus {
 /**
  * Create a new Netlify site linked to a GitHub repo
  */
-export async function createSite(repoName: string): Promise<DeployResult> {
+export async function createSite(repoName: string, includeAuth = false): Promise<DeployResult> {
   const res = await fetch('/.netlify/functions/deploy-create-site', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ repoName }),
+    body: JSON.stringify({ repoName, includeAuth }),
   });
 
   if (!res.ok) {
@@ -74,6 +74,7 @@ export async function fullDeploy(
   repo: string,
   files: { path: string; content: string }[],
   siteId: string | null,
+  includeAuth = false,
 ): Promise<{ siteId: string; url: string; deployId: string }> {
   // 1. Commit files to GitHub
   const { commitFiles } = await import('../github/api');
@@ -84,7 +85,7 @@ export async function fullDeploy(
   let url = '';
 
   if (!resolvedSiteId) {
-    const site = await createSite(repo);
+    const site = await createSite(repo, includeAuth);
     resolvedSiteId = site.siteId;
     url = site.url;
   }

@@ -22,7 +22,7 @@ import { appendTerminalLine } from '@/components/preview/TerminalPanel';
 import { TEMPLATES, type TemplateName } from '@/lib/webcontainer/templates';
 import { commitFiles } from '@/lib/github/api';
 import { listFilesRecursive, readFile } from '@/lib/webcontainer/filesystem';
-import { clearConversation } from '@/lib/agent/engine';
+import { clearConversation, getConversation } from '@/lib/agent/engine';
 import { cn } from '@/lib/utils/format';
 
 type MobileTab = 'chat' | 'code' | 'preview';
@@ -87,6 +87,14 @@ export default function EditorPage() {
         // Start dev server
         appendTerminalLine('$ npm run dev');
         await startProcess('npm run dev', (data) => appendTerminalLine(data));
+
+        // Inject project context for the AI
+        const authNote = project!.includeAuth
+          ? 'AUTH IS ENABLED for this project. Use the pre-built auth helpers from src/auth.tsx (useAuth, SignInButton, UserButton, RequireAuth). Clerk is already configured.'
+          : 'Auth is NOT enabled for this project. Do not add authentication unless the user asks.';
+
+        const contextMsg = `[Project: ${project!.name} | Template: ${templateName} | ${authNote}]`;
+        getConversation().push({ role: 'system', content: contextMsg });
 
         setBooting(false);
       } catch (err) {

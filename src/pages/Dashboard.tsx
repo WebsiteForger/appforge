@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Rocket,
   LayoutTemplate,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newTemplate, setNewTemplate] = useState('react-netlify');
+  const [includeAuth, setIncludeAuth] = useState(false);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -56,6 +58,7 @@ export default function Dashboard() {
       name: newName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-'),
       description: newDescription.trim(),
       template: newTemplate,
+      includeAuth,
       githubRepo: null,
       netlifyUrl: null,
       netlifySiteId: null,
@@ -153,6 +156,28 @@ export default function Dashboard() {
                     <option value="react-static">React Static (No database)</option>
                   </Select>
                 </div>
+
+                {/* Auth toggle */}
+                <label className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer">
+                  <div className={`w-9 h-5 rounded-full transition-colors flex items-center ${includeAuth ? 'bg-blue-600 justify-end' : 'bg-zinc-700 justify-start'}`}>
+                    <div className="w-4 h-4 bg-white rounded-full mx-0.5 shadow-sm" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="text-xs font-medium">User Authentication</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">
+                      Adds sign-in, sign-up, and user management (Clerk)
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={includeAuth}
+                    onChange={(e) => setIncludeAuth(e.target.checked)}
+                    className="sr-only"
+                  />
+                </label>
               </div>
 
               <div className="flex gap-3 justify-end mt-6">
@@ -234,6 +259,11 @@ export default function Dashboard() {
                     {formatRelativeTime(new Date(project.updatedAt).getTime())}
                   </span>
                   <span className="bg-zinc-800 px-1.5 py-0.5 rounded">{project.template}</span>
+                  {project.includeAuth && (
+                    <span className="bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                      <Shield className="w-2.5 h-2.5" /> Auth
+                    </span>
+                  )}
                 </div>
               </button>
             ))}

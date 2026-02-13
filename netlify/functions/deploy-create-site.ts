@@ -1,7 +1,9 @@
 const NETLIFY_TOKEN = process.env.NETLIFY_AUTH_TOKEN!;
 const NETLIFY_ACCOUNT = process.env.NETLIFY_ACCOUNT_SLUG!;
+const NETLIFY_ACCOUNT_ID = process.env.NETLIFY_ACCOUNT_ID!;
 const GITHUB_INSTALLATION_ID = process.env.NETLIFY_GITHUB_INSTALLATION_ID!;
 const GITHUB_ORG = process.env.GITHUB_ORG!;
+const CLERK_PK = process.env.VITE_CLERK_PUBLISHABLE_KEY!;
 const API = 'https://api.netlify.com/api/v1';
 
 async function netlifyFetch(path: string, options: RequestInit = {}) {
@@ -25,7 +27,7 @@ export default async (req: Request) => {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  const { repoName } = await req.json();
+  const { repoName, includeAuth } = await req.json();
 
   if (!repoName) {
     return Response.json({ error: 'Missing repoName' }, { status: 400 });
@@ -51,6 +53,27 @@ export default async (req: Request) => {
         },
       }),
     });
+
+    // If auth is enabled, inject the Clerk publishable key on the new site
+    // so the user's app has working authentication out of the box.
+    if (includeAuth && CLERK_PK && NETLIFY_ACCOUNT_ID) {
+      try {
+        await netlifyFetch(
+          `/accounts/${NETLIFY_ACCOUNT_ID}/env?site_id=${site.id}`,
+          {
+            method: 'POST',
+            body: JSON.stringify([
+              {
+                key: 'VITE_CLERK_PUBLISHABLE_KEY',
+                values: [{ value: CLERK_PK, context: 'all' }],
+              },
+            ]),
+          },
+        );
+      } catch {
+        // Non-fatal — site still works, auth just won't be active
+      }
+    }
 
     return Response.json({
       siteId: site.id,

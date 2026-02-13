@@ -40,6 +40,7 @@ export default function DeployButton() {
         project.githubRepo.split('/')[1] || project.githubRepo,
         files,
         project.netlifySiteId,
+        project.includeAuth,
       );
 
       updateProject({
