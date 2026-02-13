@@ -23,7 +23,7 @@ import { getProjectsKey } from '@/lib/utils/storage';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { userId } = useAuth();
+  const { userId, isLoaded } = useAuth();
   const projects = useProjectStore((s) => s.projects);
   const setProjects = useProjectStore((s) => s.setProjects);
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
@@ -38,17 +38,28 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    // Load projects from localStorage (or API in production)
+    // Wait for Clerk to finish loading so we have a real userId
+    if (!isLoaded) return;
+
+    // Clean up the old shared key (from before per-user storage)
+    const oldKey = 'appforge-projects';
+    if (localStorage.getItem(oldKey) && userId) {
+      localStorage.removeItem(oldKey);
+    }
+
+    // Load projects scoped to the current user
     setLoading(true);
     try {
       const stored = localStorage.getItem(getProjectsKey(userId));
       if (stored) {
         setProjects(JSON.parse(stored));
+      } else {
+        setProjects([]);
       }
     } finally {
       setLoading(false);
     }
-  }, [setProjects, setLoading, userId]);
+  }, [setProjects, setLoading, userId, isLoaded]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -95,6 +106,15 @@ export default function Dashboard() {
     const updated = projects.filter((p) => p.id !== projectId);
     setProjects(updated);
     localStorage.setItem(getProjectsKey(userId), JSON.stringify(updated));
+  }
+
+  // Show loading while Clerk is initializing to avoid flashing stale data
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+      </div>
+    );
   }
 
   return (
