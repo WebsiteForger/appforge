@@ -2,9 +2,9 @@ import { streamChatCompletion, type LLMMessage, type LLMToolCall } from '../llm/
 import { getLLMConfig, isConfigured } from '../llm/config';
 import { TOOL_DEFINITIONS, TOOL_EXECUTORS } from './tools';
 import { formatErrorReport } from './errors';
-import { PLAN_SYSTEM_PROMPT, BUILD_SYSTEM_PROMPT, QUICK_EDIT_SYSTEM_PROMPT } from './prompts';
+import { PLAN_SYSTEM_PROMPT, BUILD_SYSTEM_PROMPT, TEST_SYSTEM_PROMPT } from './prompts';
 import { parseXMLToolCalls, buildXMLToolInstructions } from './parser';
-import { trimConversation, estimateMessageTokens, truncateToolResult } from './context';
+import { trimConversation } from './context';
 import { useAgentStore, type AgentPhase } from '../store/agent';
 import { useChatStore } from '../store/chat';
 
@@ -47,7 +47,6 @@ export function resetAgentForNewProject() {
 export async function runAgentLoop(userMessage: string) {
   const agentStore = useAgentStore.getState();
   const chatStore = useChatStore.getState();
-  const config = getLLMConfig();
 
   if (!isConfigured()) {
     chatStore.addMessage({
@@ -75,48 +74,103 @@ export async function runAgentLoop(userMessage: string) {
   agentStore.setRunning(true);
   agentStore.resetIterations();
 
-  // Determine if we should plan first.
-  // When autoProceed is on, skip planning entirely — the build prompt
-  // already tells the AI to orient itself. This avoids the awkward
-  // auto-injected "Looks good" approval after the planning loop.
-  const autoProceed = useAgentStore.getState().autoProceed;
-  const shouldPlan =
-    !autoProceed &&
-    (agentStore.mode === 'plan-then-build' || agentStore.mode === 'plan');
+  const mode = useAgentStore.getState().mode;
 
   try {
-    // ══ PHASE 1: PLAN (only when autoProceed is off) ══
-    if (shouldPlan && agentStore.phase === 'idle') {
-      agentStore.setPhase('planning');
+    switch (mode) {
+      case 'plan': {
+        // Plan only — stop at approval
+        agentStore.setPhase('planning');
+        await runLoop({
+          systemPrompt: PLAN_SYSTEM_PROMPT,
+          signal: abortController.signal,
+        });
+        if (!abortController.signal.aborted) {
+          agentStore.setPhase('awaiting_approval');
+        }
+        break;
+      }
 
-      await runLoop({
-        systemPrompt: PLAN_SYSTEM_PROMPT,
-        signal: abortController.signal,
-      });
+      case 'build': {
+        // Build directly — no planning, no testing
+        agentStore.setPhase('building');
+        await runLoop({
+          systemPrompt: BUILD_SYSTEM_PROMPT,
+          signal: abortController.signal,
+        });
+        if (!abortController.signal.aborted) {
+          agentStore.setPhase('done');
+        }
+        break;
+      }
 
-      if (abortController.signal.aborted) return;
+      case 'test': {
+        // Test only — run QA on existing app
+        agentStore.setPhase('testing');
+        await runLoop({
+          systemPrompt: TEST_SYSTEM_PROMPT,
+          signal: abortController.signal,
+        });
+        if (!abortController.signal.aborted) {
+          agentStore.setPhase('done');
+        }
+        break;
+      }
 
-      // Pause for user approval
-      agentStore.setPhase('awaiting_approval');
-      agentStore.setRunning(false);
-      return;
-    }
+      case 'auto': {
+        // Full pipeline: Plan → approve → Build → (optionally test)
+        const currentPhase = agentStore.phase;
 
-    // ══ PHASE 2: BUILD ══
-    agentStore.setPhase('building');
+        if (currentPhase === 'idle') {
+          // Start with planning
+          agentStore.setPhase('planning');
+          await runLoop({
+            systemPrompt: PLAN_SYSTEM_PROMPT,
+            signal: abortController.signal,
+          });
+          if (abortController.signal.aborted) break;
 
-    const systemPrompt =
-      agentStore.mode === 'quick-edit'
-        ? QUICK_EDIT_SYSTEM_PROMPT
-        : BUILD_SYSTEM_PROMPT;
+          // Auto-approve the plan and continue to build
+          conversation.push({
+            role: 'user',
+            content: 'The plan looks great. Go ahead and build it.',
+          });
+          chatStore.addMessage({
+            role: 'user',
+            content: 'Plan auto-approved. Building...',
+          });
+        }
 
-    await runLoop({
-      systemPrompt,
-      signal: abortController.signal,
-    });
+        // Build phase
+        agentStore.setPhase('building');
+        await runLoop({
+          systemPrompt: BUILD_SYSTEM_PROMPT,
+          signal: abortController.signal,
+        });
+        if (abortController.signal.aborted) break;
 
-    if (!abortController.signal.aborted) {
-      agentStore.setPhase('done');
+        // After build: check auto-test setting
+        const { autoTest } = useAgentStore.getState();
+        if (autoTest) {
+          // Automatically start testing
+          agentStore.setPhase('testing');
+          conversation.push({
+            role: 'user',
+            content: 'Build complete. Now run QA tests on the application.',
+          });
+          await runLoop({
+            systemPrompt: TEST_SYSTEM_PROMPT,
+            signal: abortController.signal,
+          });
+          if (!abortController.signal.aborted) {
+            agentStore.setPhase('done');
+          }
+        } else {
+          // Pause for test approval
+          agentStore.setPhase('awaiting_test_approval');
+        }
+        break;
+      }
     }
   } catch (err) {
     if ((err as Error).name === 'AbortError') {
@@ -163,7 +217,31 @@ export async function onPlanChangeRequested(feedback: string) {
 }
 
 /**
- * The core tool-use loop. Same logic for planning and building.
+ * Called when user approves test phase after build.
+ */
+export async function onTestApproved() {
+  conversation.push({
+    role: 'user',
+    content: 'Build complete. Now run QA tests on the application.',
+  });
+  useChatStore.getState().addMessage({
+    role: 'user',
+    content: 'Running tests...',
+  });
+  const agentStore = useAgentStore.getState();
+  agentStore.setMode('test');
+  await runAgentLoop('');
+}
+
+/**
+ * Called when user skips the test phase.
+ */
+export function onTestSkipped() {
+  useAgentStore.getState().setPhase('done');
+}
+
+/**
+ * The core tool-use loop. Same logic for planning, building, and testing.
  */
 async function runLoop({
   systemPrompt,
@@ -338,16 +416,28 @@ async function runLoop({
     if (toolCalls.length === 0) {
       conversation.push({ role: 'assistant', content: fullText });
 
-      // In build mode, only stop if task_complete was called.
+      const currentPhase = useAgentStore.getState().phase;
+
+      // Planning nudge: if the AI stopped without writing schema/PLAN.md, push it
+      if (currentPhase === 'planning' && !hasWrittenFiles && nudgesUsed < MAX_NUDGES) {
+        nudgesUsed++;
+        conversation.push({
+          role: 'user',
+          content: 'You haven\'t written any files yet. Continue planning — write the database schema to db/schema.ts, types to src/lib/types.ts, and the full plan to PLAN.md. Then present the plan summary.',
+        });
+        continue;
+      }
+
+      // In build/test mode, only stop if task_complete was called.
       // Otherwise nudge the AI to keep going.
-      const isBuildPhase = useAgentStore.getState().phase === 'building';
-      if (isBuildPhase && !taskCompleted && nudgesUsed < MAX_NUDGES) {
+      const isBuildOrTest = currentPhase === 'building' || currentPhase === 'testing';
+      if (isBuildOrTest && !taskCompleted && nudgesUsed < MAX_NUDGES) {
         nudgesUsed++;
         // Check for current errors and include them in the nudge
         const errorReport = formatErrorReport();
         const hasErrors = !errorReport.includes('No errors detected');
         let nudge: string;
-        if (!hasWrittenFiles) {
+        if (!hasWrittenFiles && currentPhase === 'building') {
           nudge = 'Continue. Start writing the code files now using write_file. Build the complete application step by step. When fully done, call task_complete.';
         } else if (hasErrors) {
           nudge = `There are errors in the app that need fixing:\n\n${errorReport}\n\nPlease fix these errors, then continue building. Use check_errors() after fixing to verify.`;

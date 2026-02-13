@@ -100,6 +100,12 @@ export default function EditorPage() {
         // Expose projectId for tools (e.g. task_complete auto-save)
         (window as any).__appforge_projectId = project!.id;
 
+        // Kill previous dev server BEFORE mounting (prevents Vite restart storm)
+        if (devServerRef.current) {
+          devServerRef.current.kill();
+          devServerRef.current = null;
+        }
+
         // Mount template
         const templateName = (project!.template || 'react-netlify') as TemplateName;
         const template = TEMPLATES[templateName] ?? TEMPLATES['react-netlify'];
@@ -130,12 +136,6 @@ export default function EditorPage() {
         appendTerminalLine('$ npm install');
         await spawnCommand('npm install', (data) => appendTerminalLine(data));
 
-        // Kill previous dev server if any
-        if (devServerRef.current) {
-          devServerRef.current.kill();
-          devServerRef.current = null;
-        }
-
         // Start dev server
         appendTerminalLine('$ npm run dev');
         const server = await startProcess('npm run dev', (data) => appendTerminalLine(data));
@@ -154,10 +154,9 @@ export default function EditorPage() {
         // Auto-send project description on FIRST EVER open only.
         // Skip if files were restored or chat has history.
         if (!hasRestoredFiles && useChatStore.getState().messages.length === 0) {
-          // First open: force plan mode so the AI plans before building
+          // First open: plan first, user approves, then build
           const agentState = useAgentStore.getState();
-          agentState.setAutoProceed(false);
-          agentState.setMode('plan-then-build');
+          agentState.setMode('plan');
           agentState.setPhase('idle');
 
           const desc = project!.description?.trim();
@@ -259,7 +258,7 @@ export default function EditorPage() {
           {isRunning && (
             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-medium">
               <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
-              {agentPhase === 'planning' ? 'Planning' : 'Building'}
+              {agentPhase === 'planning' ? 'Planning' : agentPhase === 'testing' ? 'Testing' : 'Building'}
             </span>
           )}
 
@@ -309,7 +308,7 @@ export default function EditorPage() {
           <Panel defaultSize={showEditor ? 25 : 35} minSize={15} maxSize={50}>
             <ChatPanel />
           </Panel>
-          <PanelResizeHandle className="w-px bg-zinc-800/60 hover:bg-blue-500/40 transition-colors" />
+          <PanelResizeHandle className="w-1.5 bg-zinc-800/50 hover:bg-blue-500/50 transition-colors data-[resize-handle-active]:bg-blue-500/60" />
 
           {/* Editor (collapsible) */}
           {showEditor && (
@@ -317,7 +316,7 @@ export default function EditorPage() {
               <Panel defaultSize={40} minSize={20}>
                 <EditorPanel />
               </Panel>
-              <PanelResizeHandle className="w-px bg-zinc-800/60 hover:bg-blue-500/40 transition-colors" />
+              <PanelResizeHandle className="w-1.5 bg-zinc-800/50 hover:bg-blue-500/50 transition-colors data-[resize-handle-active]:bg-blue-500/60" />
             </>
           )}
 
@@ -327,7 +326,7 @@ export default function EditorPage() {
               <Panel defaultSize={70} minSize={30}>
                 <PreviewPanel />
               </Panel>
-              <PanelResizeHandle className="h-px bg-zinc-800/60 hover:bg-blue-500/40 transition-colors" />
+              <PanelResizeHandle className="h-1.5 bg-zinc-800/50 hover:bg-blue-500/50 transition-colors data-[resize-handle-active]:bg-blue-500/60" />
               <Panel defaultSize={30} minSize={15}>
                 <TerminalPanel />
               </Panel>

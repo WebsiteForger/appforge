@@ -5,6 +5,16 @@ const DB_NAME = 'appforge-files';
 const STORE_NAME = 'snapshots';
 const DB_VERSION = 1;
 
+/** Infrastructure files provided by the template — never save these in snapshots. */
+const INFRASTRUCTURE_FILES = new Set([
+  'vite.config.ts',
+  'package.json',
+  'package-lock.json',
+  'tsconfig.json',
+  'netlify.toml',
+  'index.html',
+]);
+
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -22,6 +32,10 @@ export async function saveFileSnapshot(projectId: string): Promise<void> {
     const files: Record<string, string> = {};
 
     for (const path of paths) {
+      // Skip infrastructure files — the template always provides correct versions
+      const baseName = path.split('/').pop() ?? path;
+      if (INFRASTRUCTURE_FILES.has(path) || INFRASTRUCTURE_FILES.has(baseName)) continue;
+
       try {
         files[path] = await readFile(path);
       } catch {

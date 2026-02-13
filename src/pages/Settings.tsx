@@ -3,9 +3,12 @@ import { UserButton } from '@clerk/clerk-react';
 import { ArrowLeft, Zap } from 'lucide-react';
 import LLMConfigPanel from '@/components/settings/LLMConfig';
 import ProjectSettings from '@/components/settings/ProjectSettings';
+import { useAgentStore } from '@/lib/store/agent';
 
 export default function Settings() {
   const navigate = useNavigate();
+  const autoTest = useAgentStore((s) => s.autoTest);
+  const setAutoTest = useAgentStore((s) => s.setAutoTest);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -34,6 +37,33 @@ export default function Settings() {
           {/* Project Settings */}
           <section className="border border-zinc-800/60 rounded-xl p-6 bg-zinc-900/20">
             <ProjectSettings />
+          </section>
+
+          {/* Agent Settings */}
+          <section className="border border-zinc-800/60 rounded-xl p-6 bg-zinc-900/20">
+            <h3 className="text-sm font-semibold mb-4">Agent Settings</h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-zinc-200">Auto-test after build</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  When using Auto mode, automatically run QA tests after the build completes
+                </p>
+              </div>
+              <button
+                onClick={() => setAutoTest(!autoTest)}
+                className={`
+                  relative w-10 h-5.5 rounded-full transition-colors duration-200
+                  ${autoTest ? 'bg-blue-500' : 'bg-zinc-700'}
+                `}
+              >
+                <span
+                  className={`
+                    absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform duration-200
+                    ${autoTest ? 'translate-x-[18px]' : 'translate-x-0'}
+                  `}
+                />
+              </button>
+            </div>
           </section>
 
           {/* About */}

@@ -1,45 +1,51 @@
 /**
- * Capture a screenshot of the preview iframe.
- * Returns a base64 data URL of the screenshot.
+ * Capture a screenshot of the preview iframe via the postMessage bridge.
+ * Returns a text description of the visible DOM (since the iframe is cross-origin).
  */
 export async function capturePreviewScreenshot(
-  fullPage: boolean = false,
+  _fullPage: boolean = false,
 ): Promise<string | null> {
   const iframe = document.getElementById('preview-iframe') as HTMLIFrameElement | null;
-  if (!iframe) return null;
+  if (!iframe?.contentWindow) {
+    return '[Screenshot unavailable — preview iframe not found or not loaded yet]';
+  }
 
   try {
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc?.body) return null;
+    const result = await postMessageRequest<{ description: string }>(
+      iframe.contentWindow,
+      { type: 'appforge-screenshot' },
+      3000,
+    );
+    return result?.description ?? '[Screenshot unavailable — no response from app]';
+  } catch {
+    return '[Screenshot unavailable — bridge timeout. The app may still be loading.]';
+  }
+}
 
-    const html2canvas = (await import('html2canvas')).default;
+/**
+ * Send a postMessage to a target window and wait for a typed response.
+ */
+function postMessageRequest<T>(
+  target: Window,
+  message: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<T | null> {
+  return new Promise((resolve) => {
+    const responseType = `${String(message.type)}-result`;
+    const timer = setTimeout(() => {
+      window.removeEventListener('message', handler);
+      resolve(null);
+    }, timeoutMs);
 
-    const canvas = await html2canvas(iframeDoc.body, {
-      useCORS: true,
-      allowTaint: true,
-      scrollY: fullPage ? undefined : 0,
-      windowHeight: fullPage
-        ? iframeDoc.body.scrollHeight
-        : iframe.clientHeight,
-      width: iframe.clientWidth,
-      height: fullPage ? iframeDoc.body.scrollHeight : iframe.clientHeight,
-      backgroundColor: null,
-    });
-
-    return canvas.toDataURL('image/png');
-  } catch (err) {
-    console.warn('Screenshot capture failed:', err);
-
-    // Fallback: try to get DOM structure as text description
-    try {
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (iframeDoc?.body) {
-        return `[Screenshot unavailable. DOM structure: ${iframeDoc.body.innerHTML.slice(0, 2000)}]`;
+    function handler(event: MessageEvent) {
+      if (event.data?.type === responseType) {
+        clearTimeout(timer);
+        window.removeEventListener('message', handler);
+        resolve(event.data as T);
       }
-    } catch {
-      // ignore
     }
 
-    return null;
-  }
+    window.addEventListener('message', handler);
+    target.postMessage(message, '*');
+  });
 }

@@ -1,5 +1,114 @@
 import type { FileSystemTree } from '@webcontainer/api';
 
+/** Bridge script shared between all templates — enables cross-origin error capture and screenshots. */
+const APPFORGE_BRIDGE_SCRIPT = `// AppForge Bridge — enables cross-origin communication with the parent editor.
+// Captures errors, handles screenshot requests, and posts events to parent window.
+(function() {
+  var errors = [];
+  var MAX = 30;
+
+  function push(msg) {
+    errors.push(msg);
+    if (errors.length > MAX) errors.shift();
+    try { window.parent.postMessage({ type: 'appforge-error', message: msg }, '*'); } catch(e) {}
+  }
+
+  // Capture console.error
+  var origError = console.error;
+  console.error = function() {
+    var msg = Array.prototype.slice.call(arguments).map(String).join(' ');
+    push(msg);
+    origError.apply(console, arguments);
+  };
+
+  // Capture uncaught errors
+  window.addEventListener('error', function(e) {
+    push('Uncaught: ' + e.message + ' at ' + (e.filename || '') + ':' + (e.lineno || ''));
+  });
+
+  // Capture unhandled promise rejections
+  window.addEventListener('unhandledrejection', function(e) {
+    push('Unhandled Promise: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+  });
+
+  // Watch for Vite error overlay
+  var observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(node) {
+        if (node.tagName === 'VITE-ERROR-OVERLAY' || (node.id && node.id === 'vite-error-overlay')) {
+          var text = (node.textContent || '').trim().slice(0, 500);
+          if (text) {
+            try { window.parent.postMessage({ type: 'appforge-hmr-error', message: text }, '*'); } catch(e) {}
+          }
+        }
+      });
+    });
+  });
+  if (document.body) observer.observe(document.body, { childList: true, subtree: true });
+  else document.addEventListener('DOMContentLoaded', function() {
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+
+  // Handle screenshot requests from parent
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'appforge-screenshot') return;
+
+    var desc = '';
+    try {
+      var title = document.title || '(no title)';
+      var url = location.pathname;
+      desc = 'Page: ' + title + ' | Route: ' + url + '\\n';
+
+      // Collect visible text and structure
+      var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, null, false);
+      var count = 0;
+      var node;
+      while ((node = walker.nextNode()) && count < 80) {
+        var el = node;
+        var tag = el.tagName.toLowerCase();
+        var skip = ['script', 'style', 'noscript', 'svg', 'path'];
+        if (skip.indexOf(tag) !== -1) continue;
+
+        var text = '';
+        for (var i = 0; i < el.childNodes.length; i++) {
+          if (el.childNodes[i].nodeType === 3) text += el.childNodes[i].textContent;
+        }
+        text = text.trim().slice(0, 100);
+
+        var rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) continue;
+
+        var classes = el.className && typeof el.className === 'string' ? el.className.split(' ').slice(0, 5).join(' ') : '';
+        var line = '<' + tag + (el.id ? '#' + el.id : '') + (classes ? '.' + classes.replace(/ /g, '.') : '') + '>';
+        if (text) line += ' "' + text + '"';
+        line += ' [' + Math.round(rect.width) + 'x' + Math.round(rect.height) + ' at ' + Math.round(rect.left) + ',' + Math.round(rect.top) + ']';
+        desc += line + '\\n';
+        count++;
+      }
+
+      // Check for white/blank page
+      var bg = getComputedStyle(document.body).backgroundColor;
+      if (bg === 'rgba(0, 0, 0, 0)' || bg === 'rgb(255, 255, 255)') {
+        desc += '\\n\\u26a0 WARNING: Page background is white/transparent — may appear blank.';
+      }
+      if (!document.body.textContent || document.body.textContent.trim().length < 10) {
+        desc += '\\n\\u26a0 WARNING: Page has very little text content — may be blank.';
+      }
+    } catch(err) {
+      desc = 'Error capturing screenshot: ' + err.message;
+    }
+
+    try { window.parent.postMessage({ type: 'appforge-screenshot-result', description: desc }, '*'); } catch(ex) {}
+  });
+
+  // Handle error report requests
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'appforge-get-errors') return;
+    try { window.parent.postMessage({ type: 'appforge-get-errors-result', errors: errors.slice() }, '*'); } catch(ex) {}
+  });
+})();
+`;
+
 /**
  * React + Netlify template — the default starting point for new projects.
  * Includes: React 19, Vite 6, Tailwind 4, React Router 7, Drizzle ORM,
@@ -145,6 +254,9 @@ export default defineConfig({
       ),
     },
   },
+  '__appforge_bridge.js': {
+    file: { contents: APPFORGE_BRIDGE_SCRIPT },
+  },
   'index.html': {
     file: {
       contents: `<!doctype html>
@@ -157,6 +269,7 @@ export default defineConfig({
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <script src="/__appforge_bridge.js"></script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
@@ -393,6 +506,9 @@ export default async (req: Request) => {
  * Simple static React template — no database, no auth
  */
 export const REACT_STATIC_TEMPLATE: FileSystemTree = {
+  '__appforge_bridge.js': {
+    file: { contents: APPFORGE_BRIDGE_SCRIPT },
+  },
   'package.json': {
     file: {
       contents: JSON.stringify(
@@ -447,6 +563,7 @@ export default defineConfig({
     <title>My App</title>
   </head>
   <body>
+    <script src="/__appforge_bridge.js"></script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -1,7 +1,7 @@
-import { CheckCircle2, Circle, Loader2, ThumbsUp, MessageSquare } from 'lucide-react';
+import { CheckCircle2, Circle, Loader2, ThumbsUp, MessageSquare, FlaskConical, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAgentStore } from '@/lib/store/agent';
-import { onPlanApproved, onPlanChangeRequested } from '@/lib/agent/engine';
+import { onPlanApproved, onPlanChangeRequested, onTestApproved, onTestSkipped } from '@/lib/agent/engine';
 import { useState } from 'react';
 
 export default function PlanView() {
@@ -10,7 +10,13 @@ export default function PlanView() {
   const [feedback, setFeedback] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
 
-  if (phase !== 'awaiting_approval' && plan.length === 0) return null;
+  if (
+    phase !== 'awaiting_approval' &&
+    phase !== 'awaiting_test_approval' &&
+    plan.length === 0
+  ) {
+    return null;
+  }
 
   return (
     <div className="border-t border-border bg-card/50">
@@ -39,7 +45,7 @@ export default function PlanView() {
         </div>
       )}
 
-      {/* Approval buttons */}
+      {/* Plan approval buttons */}
       {phase === 'awaiting_approval' && (
         <div className="px-4 py-3 border-t border-border space-y-3">
           <div className="flex gap-2">
@@ -88,7 +94,30 @@ export default function PlanView() {
               </Button>
             </div>
           )}
+        </div>
+      )}
 
+      {/* Test approval buttons */}
+      {phase === 'awaiting_test_approval' && (
+        <div className="px-4 py-3 border-t border-border">
+          <p className="text-xs text-muted-foreground mb-3">
+            Build complete. Would you like to run QA tests on the application?
+          </p>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={onTestApproved} className="gap-1.5">
+              <FlaskConical className="w-3.5 h-3.5" />
+              Run Tests
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onTestSkipped}
+              className="gap-1.5"
+            >
+              <SkipForward className="w-3.5 h-3.5" />
+              Skip Tests
+            </Button>
+          </div>
         </div>
       )}
     </div>

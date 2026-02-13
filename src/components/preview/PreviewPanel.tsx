@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Globe, RefreshCw, ExternalLink, Maximize2 } from 'lucide-react';
+import { Globe, RefreshCw, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { onServerReady } from '@/lib/webcontainer/process';
 import { setServerUrl } from '@/lib/agent/tools';
-import { setupConsoleCapture, setupHMRCapture } from '@/lib/agent/errors';
+import { setupBridgeErrorListener } from '@/lib/agent/errors';
 
 export default function PreviewPanel() {
   const [url, setUrl] = useState<string | null>(null);
@@ -17,19 +17,10 @@ export default function PreviewPanel() {
     });
   }, []);
 
-  // Set up error capture when iframe loads
+  // Set up bridge error listener once
   useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe || !url) return;
-
-    const handleLoad = () => {
-      setupConsoleCapture(iframe);
-      setupHMRCapture(iframe);
-    };
-
-    iframe.addEventListener('load', handleLoad);
-    return () => iframe.removeEventListener('load', handleLoad);
-  }, [url, reloadKey]);
+    setupBridgeErrorListener();
+  }, []);
 
   return (
     <div className="h-full flex flex-col bg-background">

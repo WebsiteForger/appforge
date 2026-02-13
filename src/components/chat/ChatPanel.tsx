@@ -3,6 +3,7 @@ import { Bot } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import PlanView from './PlanView';
+import ModeSwitcher from './ModeSwitcher';
 import { useChatStore } from '@/lib/store/chat';
 import { useAgentStore } from '@/lib/store/agent';
 import { runAgentLoop } from '@/lib/agent/engine';
@@ -54,10 +55,7 @@ export default function ChatPanel() {
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
       <div className="h-8 flex items-center justify-between px-3 border-b border-border bg-card shrink-0">
-        <div className="flex items-center gap-1.5 text-xs">
-          <Bot className="w-3.5 h-3.5 text-primary" />
-          <span className="font-medium text-muted-foreground">Chat</span>
-        </div>
+        <ModeSwitcher />
         {phase !== 'idle' && phase !== 'done' && (
           <span className="text-[10px] text-muted-foreground">
             Turn {iterations}

@@ -1,7 +1,16 @@
 import { create } from 'zustand';
 
-export type AgentPhase = 'idle' | 'planning' | 'awaiting_approval' | 'building' | 'done' | 'error';
-export type AgentMode = 'plan' | 'build' | 'plan-then-build' | 'quick-edit';
+export type AgentPhase =
+  | 'idle'
+  | 'planning'
+  | 'awaiting_approval'
+  | 'building'
+  | 'testing'
+  | 'awaiting_test_approval'
+  | 'done'
+  | 'error';
+
+export type AgentMode = 'plan' | 'build' | 'test' | 'auto';
 
 export interface PlanStep {
   id: string;
@@ -12,7 +21,7 @@ export interface PlanStep {
 interface AgentState {
   phase: AgentPhase;
   mode: AgentMode;
-  autoProceed: boolean;
+  autoTest: boolean;
   currentToolName: string | null;
   iterations: number;
   maxIterations: number;
@@ -23,7 +32,7 @@ interface AgentState {
 
   setPhase: (phase: AgentPhase) => void;
   setMode: (mode: AgentMode) => void;
-  setAutoProceed: (auto: boolean) => void;
+  setAutoTest: (auto: boolean) => void;
   setCurrentTool: (name: string | null) => void;
   incrementIteration: () => void;
   resetIterations: () => void;
@@ -38,8 +47,8 @@ interface AgentState {
 
 export const useAgentStore = create<AgentState>((set, get) => ({
   phase: 'idle',
-  mode: 'plan-then-build',
-  autoProceed: true,
+  mode: 'auto',
+  autoTest: true,
   currentToolName: null,
   iterations: 0,
   maxIterations: 200,
@@ -50,7 +59,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   setPhase: (phase) => set({ phase }),
   setMode: (mode) => set({ mode }),
-  setAutoProceed: (auto) => set({ autoProceed: auto }),
+  setAutoTest: (auto) => set({ autoTest: auto }),
   setCurrentTool: (name) => set({ currentToolName: name }),
   incrementIteration: () => set((s) => ({ iterations: s.iterations + 1 })),
   resetIterations: () => set({ iterations: 0 }),

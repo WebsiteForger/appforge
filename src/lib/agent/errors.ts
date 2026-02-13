@@ -1,6 +1,6 @@
 /**
  * Error capture system.
- * Collects errors from 3 sources: terminal stderr, browser console, Vite HMR.
+ * Collects errors from 3 sources: terminal stderr, browser console (via postMessage bridge), Vite HMR.
  */
 
 const terminalErrors: string[] = [];
@@ -29,72 +29,51 @@ function isNoise(data: string): boolean {
   );
 }
 
-// ── Browser console errors (from preview iframe) ──
+// ── Browser console errors (from preview iframe via postMessage bridge) ──
 
-export function setupConsoleCapture(iframe: HTMLIFrameElement) {
-  try {
-    const iframeWindow = iframe.contentWindow as (Window & { console: Console }) | null;
-    if (!iframeWindow) return;
+let bridgeListenerAttached = false;
 
-    const originalError = iframeWindow.console.error.bind(iframeWindow.console);
-    iframeWindow.console.error = (...args: unknown[]) => {
-      const msg = args.map(String).join(' ');
+/**
+ * Listen for error messages from the iframe bridge script.
+ * Call this once — it registers a global message listener.
+ */
+export function setupBridgeErrorListener() {
+  if (bridgeListenerAttached) return;
+  bridgeListenerAttached = true;
+
+  window.addEventListener('message', (event: MessageEvent) => {
+    if (!event.data || typeof event.data !== 'object') return;
+
+    if (event.data.type === 'appforge-error') {
+      const msg = String(event.data.message || '');
+      if (!msg) return;
       consoleErrors.push(msg);
       if (consoleErrors.length > MAX_ERRORS) consoleErrors.shift();
-      originalError(...args);
-    };
+    }
 
-    // Capture unhandled errors
-    iframeWindow.addEventListener('error', (event) => {
-      consoleErrors.push(`Uncaught: ${event.message} at ${event.filename}:${event.lineno}`);
-      if (consoleErrors.length > MAX_ERRORS) consoleErrors.shift();
-    });
-
-    // Capture unhandled promise rejections
-    iframeWindow.addEventListener('unhandledrejection', (event) => {
-      consoleErrors.push(`Unhandled Promise: ${event.reason}`);
-      if (consoleErrors.length > MAX_ERRORS) consoleErrors.shift();
-    });
-  } catch {
-    // Cross-origin iframe, can't capture
-  }
+    if (event.data.type === 'appforge-hmr-error') {
+      const msg = String(event.data.message || '');
+      if (!msg) return;
+      hmrErrors.push(msg);
+      if (hmrErrors.length > MAX_ERRORS) hmrErrors.shift();
+    }
+  });
 }
 
-// ── Vite HMR errors ──
+/**
+ * @deprecated — kept for backwards compat. Now a no-op since the bridge handles it.
+ */
+export function setupConsoleCapture(_iframe: HTMLIFrameElement) {
+  // No-op: cross-origin iframe console capture now handled via postMessage bridge
+  setupBridgeErrorListener();
+}
 
-export function setupHMRCapture(iframe: HTMLIFrameElement) {
-  try {
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc) return;
-
-    // Watch for Vite's error overlay div
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        for (const node of mutation.addedNodes) {
-          if (node instanceof HTMLElement) {
-            // Vite injects vite-error-overlay custom element
-            if (
-              node.tagName === 'VITE-ERROR-OVERLAY' ||
-              node.id === 'vite-error-overlay'
-            ) {
-              const text = node.textContent?.trim();
-              if (text) {
-                hmrErrors.push(text.slice(0, 500));
-                if (hmrErrors.length > MAX_ERRORS) hmrErrors.shift();
-              }
-            }
-          }
-        }
-      }
-    });
-
-    observer.observe(iframeDoc.body || iframeDoc.documentElement, {
-      childList: true,
-      subtree: true,
-    });
-  } catch {
-    // Cross-origin iframe
-  }
+/**
+ * @deprecated — kept for backwards compat. Now a no-op since the bridge handles it.
+ */
+export function setupHMRCapture(_iframe: HTMLIFrameElement) {
+  // No-op: HMR error capture now handled via postMessage bridge
+  setupBridgeErrorListener();
 }
 
 // ── Public API ──
