@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Loader2, ThumbsUp, MessageSquare, ToggleLeft, ToggleRight } from 'lucide-react';
+import { CheckCircle2, Circle, Loader2, ThumbsUp, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAgentStore } from '@/lib/store/agent';
 import { onPlanApproved, onPlanChangeRequested } from '@/lib/agent/engine';
@@ -7,8 +7,6 @@ import { useState } from 'react';
 export default function PlanView() {
   const phase = useAgentStore((s) => s.phase);
   const plan = useAgentStore((s) => s.plan);
-  const autoProceed = useAgentStore((s) => s.autoProceed);
-  const setAutoProceed = useAgentStore((s) => s.setAutoProceed);
   const [feedback, setFeedback] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
 
@@ -91,17 +89,6 @@ export default function PlanView() {
             </div>
           )}
 
-          <button
-            onClick={() => setAutoProceed(!autoProceed)}
-            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {autoProceed ? (
-              <ToggleRight className="w-4 h-4 text-primary" />
-            ) : (
-              <ToggleLeft className="w-4 h-4" />
-            )}
-            Auto-proceed next time
-          </button>
         </div>
       )}
     </div>

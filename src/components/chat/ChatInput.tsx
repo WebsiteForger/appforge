@@ -1,8 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
-import { Send, Square, Paperclip } from 'lucide-react';
+import { Send, Square, Zap, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAgentStore } from '@/lib/store/agent';
-import { useChatStore } from '@/lib/store/chat';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -13,6 +12,8 @@ export default function ChatInput({ onSend }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isRunning = useAgentStore((s) => s.isRunning);
   const stop = useAgentStore((s) => s.stop);
+  const autoProceed = useAgentStore((s) => s.autoProceed);
+  const setAutoProceed = useAgentStore((s) => s.setAutoProceed);
 
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
@@ -82,6 +83,18 @@ export default function ChatInput({ onSend }: ChatInputProps) {
         <p className="text-[10px] text-muted-foreground">
           Shift+Enter for new line
         </p>
+        <button
+          onClick={() => setAutoProceed(!autoProceed)}
+          className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          title={autoProceed ? 'Auto-build: AI builds directly without a separate planning step' : 'Plan first: AI plans, you approve, then it builds'}
+        >
+          {autoProceed ? (
+            <Zap className="w-3 h-3 text-primary" />
+          ) : (
+            <ListChecks className="w-3 h-3" />
+          )}
+          {autoProceed ? 'Auto-build' : 'Plan first'}
+        </button>
       </div>
     </div>
   );

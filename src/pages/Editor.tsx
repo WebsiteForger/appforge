@@ -114,9 +114,13 @@ export default function EditorPage() {
 
         setBooting(false);
 
-        // Auto-send project description as first prompt
-        if (project!.description && useChatStore.getState().messages.length === 0) {
-          runAgentLoop(project!.description);
+        // Auto-send project description (or name) as the first prompt
+        if (useChatStore.getState().messages.length === 0) {
+          const desc = project!.description?.trim();
+          const firstPrompt = desc
+            ? desc
+            : `Build an app called "${project!.name}".`;
+          runAgentLoop(firstPrompt);
         }
       } catch (err) {
         appendTerminalLine(`Error: ${err}`);

@@ -49,13 +49,17 @@ export async function runAgentLoop(userMessage: string) {
   agentStore.setRunning(true);
   agentStore.resetIterations();
 
-  // Determine if we should plan first
+  // Determine if we should plan first.
+  // When autoProceed is on, skip planning entirely — the build prompt
+  // already tells the AI to orient itself. This avoids the awkward
+  // auto-injected "Looks good" approval after the planning loop.
+  const autoProceed = useAgentStore.getState().autoProceed;
   const shouldPlan =
-    agentStore.mode === 'plan-then-build' ||
-    agentStore.mode === 'plan';
+    !autoProceed &&
+    (agentStore.mode === 'plan-then-build' || agentStore.mode === 'plan');
 
   try {
-    // ══ PHASE 1: PLAN (if needed) ══
+    // ══ PHASE 1: PLAN (only when autoProceed is off) ══
     if (shouldPlan && agentStore.phase === 'idle') {
       agentStore.setPhase('planning');
 
@@ -66,23 +70,10 @@ export async function runAgentLoop(userMessage: string) {
 
       if (abortController.signal.aborted) return;
 
-      // If auto-proceed, inject approval and continue to build
-      // Re-read from live store (the snapshot captured above may be stale)
-      if (useAgentStore.getState().autoProceed) {
-        conversation.push({
-          role: 'user',
-          content: 'Looks good. Proceed with building the full application.',
-        });
-        chatStore.addMessage({
-          role: 'user',
-          content: 'Looks good. Proceed with building the full application.',
-        });
-      } else {
-        // Pause for user approval
-        agentStore.setPhase('awaiting_approval');
-        agentStore.setRunning(false);
-        return;
-      }
+      // Pause for user approval
+      agentStore.setPhase('awaiting_approval');
+      agentStore.setRunning(false);
+      return;
     }
 
     // ══ PHASE 2: BUILD ══
