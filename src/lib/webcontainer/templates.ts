@@ -528,6 +528,79 @@ export default async (req: Request) => {
 };
 
 /**
+ * Overlay mounted OVER the react-netlify template when includeAuth is false.
+ * Strips Clerk from package.json, main.tsx, and replaces auth.tsx with a stub.
+ */
+export const NO_AUTH_OVERLAY: FileSystemTree = {
+  'package.json': {
+    file: {
+      contents: JSON.stringify(
+        {
+          name: 'my-app',
+          private: true,
+          type: 'module',
+          scripts: {
+            dev: 'vite',
+            build: 'vite build',
+            preview: 'vite preview',
+          },
+          dependencies: {
+            react: '^19.0.0',
+            'react-dom': '^19.0.0',
+            'react-router': '^7.0.0',
+            'react-router-dom': '^7.0.0',
+            'lucide-react': '^0.460.0',
+            '@electric-sql/pglite': '^0.3.0',
+            '@neondatabase/serverless': '^1.0.0',
+            'drizzle-orm': '^0.38.0',
+          },
+          devDependencies: {
+            '@types/react': '^19.0.0',
+            '@types/react-dom': '^19.0.0',
+            '@vitejs/plugin-react': '^4.3.0',
+            '@tailwindcss/vite': '^4.0.0',
+            'drizzle-kit': '^0.30.0',
+            tailwindcss: '^4.0.0',
+            typescript: '^5.6.0',
+            vite: '^6.0.0',
+          },
+        },
+        null,
+        2,
+      ),
+    },
+  },
+  src: {
+    directory: {
+      'main.tsx': {
+        file: {
+          contents: `import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+import './index.css';
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
+`,
+        },
+      },
+      'auth.tsx': {
+        file: {
+          contents: `// Auth is not enabled for this project.
+// This file exists as a stub so imports don't break.
+// To enable auth, create a new project with the Auth toggle on.
+export {};
+`,
+        },
+      },
+    },
+  },
+};
+
+/**
  * Simple static React template — no database, no auth
  */
 export const REACT_STATIC_TEMPLATE: FileSystemTree = {

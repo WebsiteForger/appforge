@@ -19,7 +19,7 @@ import { getWebContainer, teardownWebContainer } from '@/lib/webcontainer/instan
 import { buildFileTree } from '@/lib/webcontainer/filesystem';
 import { startProcess, onServerReady, spawnCommand } from '@/lib/webcontainer/process';
 import { appendTerminalLine, clearTerminal } from '@/components/preview/TerminalPanel';
-import { TEMPLATES, type TemplateName } from '@/lib/webcontainer/templates';
+import { TEMPLATES, NO_AUTH_OVERLAY, type TemplateName } from '@/lib/webcontainer/templates';
 import { commitFiles } from '@/lib/github/api';
 import { listFilesRecursive, readFile } from '@/lib/webcontainer/filesystem';
 import { clearConversation, getConversation, resetAgentForNewProject, runAgentLoop } from '@/lib/agent/engine';
@@ -129,6 +129,12 @@ export default function EditorPage() {
 
         appendTerminalLine(`$ Mounting template: ${templateName}`);
         await wc.mount(template);
+
+        // Strip Clerk auth from template when auth is not enabled
+        if (!project!.includeAuth && templateName === 'react-netlify') {
+          await wc.mount(NO_AUTH_OVERLAY);
+          appendTerminalLine('Auth disabled — Clerk removed from template.');
+        }
 
         // Restore saved files from IndexedDB (overlay on top of template)
         let hasRestoredFiles = false;
