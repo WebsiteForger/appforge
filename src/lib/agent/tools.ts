@@ -245,10 +245,7 @@ export const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
       editorStore.openFile(path, content);
     }
 
-    // Refresh file tree
-    const tree = await fs.buildFileTree();
-    editorStore.setFileTree(tree);
-
+    // NOTE: file tree refresh is batched in engine.ts after all parallel writes
     const lines = content.split('\n').length;
     return `Wrote ${path} (${lines} lines)`;
   },

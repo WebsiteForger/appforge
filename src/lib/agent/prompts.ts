@@ -15,6 +15,8 @@ RULES:
 - Do NOT write implementation code (no components, pages, API routes)
 - NEVER run "npm run dev" — dev server is already running
 - When done, respond WITHOUT tool calls
+- Call multiple tools in one response (they execute in parallel)
+  e.g. write schema.ts + types.ts + PLAN.md all in a single response
 
 TEMPLATE STRUCTURE (already exists — plan around this):
   src/App.tsx         — Router (build phase will rewrite)
@@ -198,8 +200,13 @@ as the final step to wire up routes.
 
 IMPORTANT: Start writing code in your FIRST response. Don't waste turns
 reading files — you already know the template structure from above.
-Write multiple files per turn. You can call write_file many times in one
-response — write 3-5 files at once to build faster.
+
+PARALLEL TOOL CALLS — call multiple tools in a single response:
+- Read multiple files at once: call read_file 3-5 times in one response
+- Write multiple files at once: call write_file for several files in one response
+- Mix reads and writes: read 2 files + write 3 files = all in one response
+- This executes them in parallel, saving time and API calls
+- RULE: Never write_file to the same path twice in one response
 
 AVAILABLE TOOLS (use ONLY these exact names):
 write_file, read_file, list_files, delete_file, run_command,

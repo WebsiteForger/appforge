@@ -12,7 +12,7 @@ export default function ChatPanel() {
   const messages = useChatStore((s) => s.messages);
   const phase = useAgentStore((s) => s.phase);
   const iterations = useAgentStore((s) => s.iterations);
-  const currentToolName = useAgentStore((s) => s.currentToolName);
+  const currentTools = useAgentStore((s) => s.currentTools);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Filter out internal system messages and empty assistant bubbles from display
@@ -39,7 +39,7 @@ export default function ChatPanel() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, currentToolName, scrollToBottom]);
+  }, [messages, currentTools, scrollToBottom]);
 
   // Also scroll on content mutations (streaming text)
   useEffect(() => {
@@ -104,11 +104,13 @@ export default function ChatPanel() {
       <PlanView />
 
       {/* Agent status bar */}
-      {currentToolName && (
+      {currentTools.length > 0 && (
         <div className="px-3 py-1.5 border-t border-border bg-primary/5 flex items-center gap-2">
           <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
           <span className="text-[10px] text-primary font-medium">
-            {currentToolName}...
+            {currentTools.length === 1
+              ? `${currentTools[0]}...`
+              : `Running ${currentTools.length} tools...`}
           </span>
         </div>
       )}

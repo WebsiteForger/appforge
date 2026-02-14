@@ -22,7 +22,7 @@ interface AgentState {
   phase: AgentPhase;
   mode: AgentMode;
   autoTest: boolean;
-  currentToolName: string | null;
+  currentTools: string[];
   iterations: number;
   maxIterations: number;
   plan: PlanStep[];
@@ -33,7 +33,7 @@ interface AgentState {
   setPhase: (phase: AgentPhase) => void;
   setMode: (mode: AgentMode) => void;
   setAutoTest: (auto: boolean) => void;
-  setCurrentTool: (name: string | null) => void;
+  setCurrentTools: (names: string[]) => void;
   incrementIteration: () => void;
   resetIterations: () => void;
   setPlan: (plan: PlanStep[]) => void;
@@ -49,7 +49,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   phase: 'idle',
   mode: 'auto',
   autoTest: true,
-  currentToolName: null,
+  currentTools: [],
   iterations: 0,
   maxIterations: 200,
   plan: [],
@@ -60,7 +60,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   setPhase: (phase) => set({ phase }),
   setMode: (mode) => set({ mode }),
   setAutoTest: (auto) => set({ autoTest: auto }),
-  setCurrentTool: (name) => set({ currentToolName: name }),
+  setCurrentTools: (names) => set({ currentTools: names }),
   incrementIteration: () => set((s) => ({ iterations: s.iterations + 1 })),
   resetIterations: () => set({ iterations: 0 }),
   setPlan: (plan) => set({ plan }),
@@ -79,14 +79,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set({
       isRunning: false,
       phase: 'idle',
-      currentToolName: null,
+      currentTools: [],
       abortController: null,
     });
   },
   reset: () =>
     set({
       phase: 'idle',
-      currentToolName: null,
+      currentTools: [],
       iterations: 0,
       plan: [],
       isRunning: false,

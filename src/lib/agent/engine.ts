@@ -7,6 +7,8 @@ import { parseXMLToolCalls, buildXMLToolInstructions } from './parser';
 import { trimConversation } from './context';
 import { useAgentStore, type AgentPhase } from '../store/agent';
 import { useChatStore } from '../store/chat';
+import * as filesystem from '../webcontainer/filesystem';
+import { useEditorStore } from '../store/editor';
 
 const MAX_ITERATIONS = 200;
 const MAX_CONSECUTIVE_ERRORS = 5;
@@ -185,7 +187,7 @@ export async function runAgentLoop(userMessage: string) {
     }
   } finally {
     agentStore.setRunning(false);
-    agentStore.setCurrentTool(null);
+    agentStore.setCurrentTools([]);
     agentStore.setAbortController(null);
   }
 }
@@ -465,82 +467,95 @@ async function runLoop({
       tool_calls: toolCalls,
     });
 
+    // Mark flags before execution (same as before)
     for (const tc of toolCalls) {
-      if (signal.aborted) break;
+      if (tc.function.name === 'write_file') hasWrittenFiles = true;
+      if (tc.function.name === 'task_complete') taskCompleted = true;
+    }
 
-      const toolName = tc.function.name;
-      const executor = TOOL_EXECUTORS[toolName];
+    // Show all running tools in status bar
+    agentStore.setCurrentTools(toolCalls.map((tc) => tc.function.name));
 
-      if (toolName === 'write_file') hasWrittenFiles = true;
-      if (toolName === 'task_complete') taskCompleted = true;
+    // Execute all tool calls in parallel
+    const toolResults = await Promise.all(
+      toolCalls.map(async (tc) => {
+        if (signal.aborted) {
+          return { tc, result: 'Aborted' as string | { type: 'image'; data: string }, error: true };
+        }
+        const toolName = tc.function.name;
+        const executor = TOOL_EXECUTORS[toolName];
 
-      agentStore.setCurrentTool(toolName);
-
-      let args: Record<string, unknown>;
-      try {
-        args = JSON.parse(tc.function.arguments || '{}');
-      } catch {
-        args = {};
-      }
-
-      try {
-        const result = await executor(args);
-        consecutiveErrors = 0;
-
-        let resultStr: string;
-        if (typeof result === 'object' && result.type === 'image') {
-          // For vision-capable models, include the image
-          resultStr = '[Screenshot captured]';
-          // Add image to conversation for vision models
-          if (config.supportsVision) {
-            conversation.push({
-              role: 'tool',
-              content: [
-                { type: 'text', text: 'Screenshot of the current app:' },
-                { type: 'image_url', image_url: { url: result.data } },
-              ],
-              tool_call_id: tc.id,
-            });
-          } else {
-            conversation.push({
-              role: 'tool',
-              content: resultStr,
-              tool_call_id: tc.id,
-            });
-          }
-        } else {
-          resultStr = result as string;
-          conversation.push({
-            role: 'tool',
-            content: resultStr,
-            tool_call_id: tc.id,
-          });
+        let args: Record<string, unknown>;
+        try {
+          args = JSON.parse(tc.function.arguments || '{}');
+        } catch {
+          args = {};
         }
 
+        try {
+          const result = await executor(args);
+          return { tc, result, error: false };
+        } catch (err) {
+          return {
+            tc,
+            result: `Error: ${err instanceof Error ? err.message : String(err)}` as string | { type: 'image'; data: string },
+            error: true,
+          };
+        }
+      }),
+    );
+
+    // Process all results: add to conversation, update chat UI
+    let batchErrors = 0;
+    let batchSuccesses = 0;
+
+    for (const { tc, result, error } of toolResults) {
+      if (error) {
+        const errorMsg = result as string;
+        batchErrors++;
+        conversation.push({ role: 'tool', content: errorMsg, tool_call_id: tc.id });
+        chatStore.updateToolCall(msgId, tc.id, { result: errorMsg, isRunning: false, isError: true });
+      } else if (typeof result === 'object' && result.type === 'image') {
+        const resultStr = '[Screenshot captured]';
+        batchSuccesses++;
+        if (config.supportsVision) {
+          conversation.push({
+            role: 'tool',
+            content: [
+              { type: 'text', text: 'Screenshot of the current app:' },
+              { type: 'image_url', image_url: { url: result.data } },
+            ],
+            tool_call_id: tc.id,
+          });
+        } else {
+          conversation.push({ role: 'tool', content: resultStr, tool_call_id: tc.id });
+        }
+        chatStore.updateToolCall(msgId, tc.id, { result: '[Screenshot]', isRunning: false, isError: false });
+      } else {
+        const resultStr = result as string;
+        batchSuccesses++;
+        conversation.push({ role: 'tool', content: resultStr, tool_call_id: tc.id });
         chatStore.updateToolCall(msgId, tc.id, {
-          result: typeof result === 'string' ? result.slice(0, 200) : '[Screenshot]',
+          result: resultStr.slice(0, 200),
           isRunning: false,
           isError: false,
-        });
-      } catch (err) {
-        const errorMsg = `Error: ${err instanceof Error ? err.message : String(err)}`;
-        consecutiveErrors++;
-
-        conversation.push({
-          role: 'tool',
-          content: errorMsg,
-          tool_call_id: tc.id,
-        });
-
-        chatStore.updateToolCall(msgId, tc.id, {
-          result: errorMsg,
-          isRunning: false,
-          isError: true,
         });
       }
     }
 
-    agentStore.setCurrentTool(null);
+    // Reset/increment consecutive errors based on batch results
+    if (batchSuccesses > 0) {
+      consecutiveErrors = 0;
+    }
+    consecutiveErrors += batchErrors;
+
+    // Batch file tree refresh — once after all writes instead of per-file
+    if (toolResults.some((r) => r.tc.function.name === 'write_file' && !r.error)) {
+      const tree = await filesystem.buildFileTree();
+      useEditorStore.getState().setFileTree(tree);
+    }
+
+    agentStore.setCurrentTools([]);
 
     // Reset nudge counter after successful tool calls — nudges only
     // count consecutive text-only responses, not total across the loop
